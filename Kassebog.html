@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kassebog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: a ledger-like tool reading/writing .md files in a user-chosen folder; — header with year + storage status, tab row, one working panel at a time. Numbers in mono, right-aligned. */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --ink:#15212c; --muted:#5a6774; --line:#d7dde3;
+  --accent:#1d5c8f; --accent-soft:#e3edf6;
+  --good:#1f7a4d; --warn:#9a5d08; --bad:#b3261e;
+  --good-soft:#e2f2ea; --warn-soft:#fbefdc; --bad-soft:#fbe5e3;
+  --display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1318; --surface:#151c23; --ink:#e4ebf1; --muted:#93a0ad; --line:#2a3540;
+    --accent:#72b1e4; --accent-soft:#1a2b3a;
+    --good:#55c48f; --warn:#e3a645; --bad:#f07a70;
+    --good-soft:#15291f; --warn-soft:#2c2213; --bad-soft:#321918;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1318; --surface:#151c23; --ink:#e4ebf1; --muted:#93a0ad; --line:#2a3540;
+  --accent:#72b1e4; --accent-soft:#1a2b3a;
+  --good:#55c48f; --warn:#e3a645; --bad:#f07a70;
+  --good-soft:#15291f; --warn-soft:#2c2213; --bad-soft:#321918;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+.wrap{max-width:1120px;margin:0 auto;padding:20px 18px 60px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:26px;font-weight:600;letter-spacing:.01em}
+h2{font-size:20px;font-weight:600}
+h3{font-size:16px;font-weight:600}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+header.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;margin-bottom:14px}
+.brand{display:flex;flex-direction:column;gap:2px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.chip{font-family:var(--body);display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12.5px;border:1px solid var(--line);background:var(--surface);color:var(--muted);white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip.good{color:var(--good);background:var(--good-soft);border-color:transparent}
+.chip.warn{color:var(--warn);background:var(--warn-soft);border-color:transparent}
+.chip.bad{color:var(--bad);background:var(--bad-soft);border-color:transparent}
+.chip.plain::before{display:none}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:18px}
+nav.tabs a{padding:9px 14px;color:var(--muted);text-decoration:none;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap}
+nav.tabs a:hover{color:var(--ink)}
+nav.tabs a[aria-current="page"]{color:var(--accent);border-bottom-color:var(--accent)}
+.panel{display:none;flex-direction:column;gap:18px}
+.panel.active{display:flex}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.tile .label{font-size:13px;color:var(--muted)}
+.tile .value{font-family:var(--mono);font-size:22px;font-variant-numeric:tabular-nums}
+.tile .sub{font-size:12.5px;color:var(--muted)}
+.grid2{align-items:start;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+form.entry{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 12px;align-items:end}
+form.entry .wide{grid-column:span 2}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 9px;min-width:0;width:100%}
+input[type="checkbox"]{width:auto}
+input:focus,select:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.f.check{flex-direction:row;align-items:center;gap:8px;color:var(--ink);padding-bottom:8px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;font-family:var(--body);font-weight:500;border-radius:7px;padding:7px 14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+button.primary:hover{filter:brightness(1.08)}
+button.link{border:none;background:none;padding:2px 6px;color:var(--accent)}
+button.link.danger{color:var(--bad)}
+button.small{padding:4px 10px;font-size:13px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-weight:600;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+th.num{text-align:right;font-family:var(--body)}
+tr.total td{font-weight:600;border-top:2px solid var(--ink);border-bottom:none}
+tr.sub td{color:var(--muted)}
+tr.editing td{background:var(--accent-soft)}
+td.txt{max-width:260px}
+.tag{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.tag.ex{background:var(--warn-soft);color:var(--warn)}
+.note{border-left:3px solid var(--accent);background:var(--accent-soft);padding:10px 14px;border-radius:0 8px 8px 0;font-size:14px}
+.note.warn{border-color:var(--warn);background:var(--warn-soft)}
+.note.bad{border-color:var(--bad);background:var(--bad-soft)}
+.note.good{border-color:var(--good);background:var(--good-soft)}
+.empty{padding:18px;text-align:center;color:var(--muted)}
+.deadlines{display:flex;flex-direction:column}
+.dl{display:grid;grid-template-columns:118px 1fr auto;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);align-items:baseline}
+.dl:last-child{border-bottom:none}
+.dl .d{font-family:var(--mono);font-size:13.5px}
+.dl.past{opacity:.55}
+.bars{display:grid;grid-template-columns:repeat(12,1fr);gap:6px;align-items:end;height:150px;padding-top:6px}
+.bar{display:flex;gap:2px;align-items:end;height:100%}
+.bar span{flex:1;border-radius:3px 3px 0 0;min-height:1px}
+.bar .i{background:var(--accent)}
+.bar .u{background:var(--muted);opacity:.55}
+.months{display:grid;grid-template-columns:repeat(12,1fr);gap:6px;font-size:11.5px;color:var(--muted);text-align:center}
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.progress{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.progress span{display:block;height:100%;background:var(--accent)}
+.progress.warn span{background:var(--warn)}
+.progress.bad span{background:var(--bad)}
+textarea{font:13px/1.4 var(--mono);width:100%;min-height:140px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px}
+.hidden{display:none !important}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+@media (max-width:520px){
+  form.entry .wide{grid-column:auto}
+  .dl{grid-template-columns:1fr;gap:2px}
+}
+code{font-family:var(--mono);font-size:.9em;background:var(--accent-soft);padding:1px 5px;border-radius:4px}
+button:disabled{opacity:.5;cursor:default}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Kassebog</h1>
+      <span class="muted small" id="firmLine">Enkeltmandsvirksomhed</span>
+    </div>
+    <div class="toolbar">
+      <label class="f" for="yearSel" style="flex-direction:row;align-items:center;gap:8px">Regnskabsår
+        <select id="yearSel" style="width:auto"></select>
+      </label>
+      <span class="chip" id="folderChip">Ingen mappe</span>
+      <button type="button" class="small" id="btnReload" title="Læs filerne igen, fx efter du har rettet i Obsidian">Genindlæs</button>
+      <button type="button" class="small" id="btnPick">Skift mappe</button>
+    </div>
+  </header>
+
+  <!-- START: vælg mappe -->
+  <section class="panel active" id="p-start">
+    <div class="card" style="max-width:680px">
+      <h2>Vælg mappen med dine regnskabsdata</h2>
+      <p>Kassebogen gemmer alt som almindelige .md-filer i en mappe, du vælger. HTML-filen indeholder ingen data, og intet sendes nogen steder hen. Du kan åbne og rette filerne i Obsidian eller en anden teksteditor.</p>
+      <p class="muted small">I mappen bruges disse filer: <code>Kassebog indstillinger.md</code>, og for hvert år <code>2026 Indtægter.md</code>, <code>2026 Udgifter.md</code>, <code>2026 Kørsel.md</code> og <code>2026 Hævninger.md</code>, og satserne står i <code>Kassebog satser.md</code>. Rapporter, du gemmer, hedder fx <code>2026 Momsrapport.md</code>. Andre filer i mappen bliver ikke rørt.</p>
+      <div class="actions" id="startActions">
+        <button type="button" class="primary" id="btnPickStart">Vælg mappe</button>
+      </div>
+      <div class="note bad hidden" id="noSupport">Din browser kan ikke give en side adgang til en mappe. Åbn filen i Chrome, Edge eller Brave på en computer.</div>
+    </div>
+  </section>
+
+  <nav class="tabs hidden" id="tabs" aria-label="Sektioner">
+    <a href="#overblik" data-tab="overblik">Overblik</a>
+    <a href="#indtaegter" data-tab="indtaegter">Indtægter</a>
+    <a href="#udgifter" data-tab="udgifter">Udgifter</a>
+    <a href="#koersel" data-tab="koersel">Kørsel</a>
+    <a href="#loen" data-tab="loen">Løn til mig</a>
+    <a href="#moms" data-tab="moms">Moms</a>
+    <a href="#aarsresultat" data-tab="aarsresultat">Årsresultat</a>
+    <a href="#frister" data-tab="frister">Frister</a>
+    <a href="#indstillinger" data-tab="indstillinger">Indstillinger</a>
+  </nav>
+
+  <section class="panel" id="p-overblik">
+    <div id="ovNotes" class="deadlines" style="gap:8px"></div>
+    <div class="tiles" id="ovTiles"></div>
+    <div class="grid2">
+      <div class="card">
+        <div class="actions" style="justify-content:space-between">
+          <h2>Måned for måned</h2>
+          <div class="legend"><span><i style="background:var(--accent)"></i>Indtægter ekskl. moms</span><span><i style="background:var(--muted);opacity:.55"></i>Fradrag</span></div>
+        </div>
+        <div class="bars" id="ovBars"></div>
+        <div class="months" id="ovMonths"></div>
+      </div>
+      <div class="card">
+        <h2>Næste frister</h2>
+        <div class="deadlines" id="ovDeadlines"></div>
+        <a href="#frister" class="small" style="color:var(--accent)">Se alle frister</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-indtaegter">
+    <div class="card">
+      <h2 id="incFormTitle">Ny indtægt</h2>
+      <form class="entry" id="incForm" autocomplete="off">
+        <label class="f" for="incDato">Dato<input type="date" id="incDato" required></label>
+        <label class="f wide" for="incTekst">Kunde / tekst<input id="incTekst" required placeholder="Fx Workshop for Firma A/S"></label>
+        <label class="f" for="incBelob">Beløb (kr.)<input id="incBelob" inputmode="decimal" required placeholder="0,00"></label>
+        <label class="f" for="incInkl">Beløbet er<select id="incInkl"><option value="1">inkl. moms</option><option value="0">ekskl. moms</option></select></label>
+        <label class="f" for="incType">Moms<select id="incType">
+          <option value="dk">Dansk salg, 25 % moms</option>
+          <option value="eu">Ydelse til EU-firma (rubrik B)</option>
+          <option value="fri">Momsfri / uden for EU (rubrik C)</option>
+        </select></label>
+        <label class="f" for="incBilag">Bilag nr.<input id="incBilag"></label>
+        <div class="actions"><button class="primary" type="submit" id="incSubmit">Tilføj</button><button type="button" class="hidden" id="incCancel">Annullér</button></div>
+      </form>
+      <p class="muted small" id="incHint"></p>
+    </div>
+    <div class="card">
+      <h2>Indtægter <span class="muted small" id="incCount"></span></h2>
+      <div class="tablewrap" id="incTable"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-udgifter">
+    <div class="card">
+      <h2 id="expFormTitle">Ny udgift</h2>
+      <form class="entry" id="expForm" autocomplete="off">
+        <label class="f" for="expDato">Dato<input type="date" id="expDato" required></label>
+        <label class="f wide" for="expTekst">Leverandør / tekst<input id="expTekst" required placeholder="Fx Ny bærbar til kontoret"></label>
+        <label class="f" for="expKat">Kategori<select id="expKat"></select></label>
+        <label class="f" for="expBelob">Beløb (kr.)<input id="expBelob" inputmode="decimal" required placeholder="0,00"></label>
+        <label class="f" for="expMoms">Moms på bilaget<select id="expMoms">
+          <option value="auto">Automatisk efter kategori</option>
+          <option value="25">Dansk moms 25 % (beløb inkl. moms)</option>
+          <option value="0">Ingen moms</option>
+          <option value="rcEU">EU-firma uden moms (omvendt betalingspligt)</option>
+          <option value="rcX">Firma uden for EU uden moms (omvendt betalingspligt)</option>
+        </select></label>
+        <label class="f" for="expAndel">Erhvervsandel %<input id="expAndel" inputmode="numeric" value="100"></label>
+        <label class="f" for="expBilag">Bilag nr.<input id="expBilag"></label>
+        <div class="actions"><button class="primary" type="submit" id="expSubmit">Tilføj</button><button type="button" class="hidden" id="expCancel">Annullér</button></div>
+      </form>
+      <p class="muted small" id="expHint"></p>
+    </div>
+    <div class="card">
+      <h2>Udgifter <span class="muted small" id="expCount"></span></h2>
+      <div class="tablewrap" id="expTable"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-koersel">
+    <div class="card">
+      <h2 id="tripFormTitle">Ny tur</h2>
+      <form class="entry" id="tripForm" autocomplete="off">
+        <label class="f" for="tripDato">Dato<input type="date" id="tripDato" required></label>
+        <label class="f" for="tripFra">Fra<input id="tripFra" required placeholder="Fx Kontoret"></label>
+        <label class="f" for="tripTil">Til (og evt. delmål)<input id="tripTil" required placeholder="Fx Kunde, Vejle"></label>
+        <label class="f wide" for="tripFormaal">Erhvervsmæssigt formål<input id="tripFormaal" required placeholder="Fx Afholdelse af GTD-workshop"></label>
+        <label class="f" for="tripKm">Km (én vej)<input id="tripKm" inputmode="decimal" required placeholder="0"></label>
+        <label class="f check" for="tripRetur"><input type="checkbox" id="tripRetur" checked> Tur/retur</label>
+        <div class="actions"><button class="primary" type="submit" id="tripSubmit">Tilføj</button><button type="button" class="hidden" id="tripCancel">Annullér</button></div>
+      </form>
+      <p class="muted small" id="tripHint"></p>
+    </div>
+    <div class="card">
+      <h2>Kørselsbog <span class="muted small" id="tripCount"></span></h2>
+      <div class="tablewrap" id="tripTable"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-loen">
+    <div class="tiles" id="haevTiles"></div>
+    <div class="card">
+      <h2 id="haevFormTitle">Registrér udbetaling</h2>
+      <form class="entry" id="haevForm" autocomplete="off">
+        <label class="f" for="haevDato">Dato<input type="date" id="haevDato" required></label>
+        <label class="f" for="haevType">Type<select id="haevType">
+          <option value="loen">Løn til mig selv (privat hævning)</option>
+          <option value="skat">Skat betalt fra virksomhedens konto</option>
+          <option value="indskud">Indskud fra mig selv til virksomheden</option>
+        </select></label>
+        <label class="f" for="haevBelob">Beløb (kr.)<input id="haevBelob" inputmode="decimal" required placeholder="0,00"></label>
+        <label class="f wide" for="haevTekst">Tekst<input id="haevTekst" placeholder="Fx Løn november"></label>
+        <div class="actions"><button class="primary" type="submit" id="haevSubmit">Tilføj</button><button type="button" class="hidden" id="haevCancel">Annullér</button></div>
+      </form>
+      <p class="muted small" id="haevHint"></p>
+    </div>
+    <div class="card">
+      <h2>Udbetalinger og indskud <span class="muted small" id="haevCount"></span></h2>
+      <div class="tablewrap" id="haevTable"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-moms">
+    <div id="momsBody" class="card"></div>
+  </section>
+
+  <section class="panel" id="p-aarsresultat">
+    <div class="grid2">
+      <div class="card" id="resCard"></div>
+      <div class="card" id="taxCard"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-frister">
+    <div class="card">
+      <h2 id="fristTitle">Frister</h2>
+      <div class="deadlines" id="fristList"></div>
+      <p class="muted small">Datoerne er beregnet efter Skattestyrelsens regler og flyttet til næste hverdag, hvis de falder i en weekend. Helligdage er ikke medregnet, så tjek skat.dk/frister, hvis en frist ligger tæt på en helligdag.</p>
+    </div>
+  </section>
+
+  <section class="panel" id="p-indstillinger">
+    <div class="card">
+      <h2>Virksomhed og moms</h2>
+      <form class="entry" id="setForm" autocomplete="off">
+        <label class="f wide" for="sFirma">Virksomhedens navn<input id="sFirma"></label>
+        <label class="f" for="sCvr">CVR-nr.<input id="sCvr" inputmode="numeric"></label>
+        <label class="f check" for="sMomsreg"><input type="checkbox" id="sMomsreg"> Momsregistreret</label>
+        <label class="f" for="sPeriode">Momsperiode<select id="sPeriode"><option value="halvaar">Halvårlig (omsætning under 5 mio.)</option><option value="kvartal">Kvartalsvis (nystartet eller valgt)</option></select></label>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Til skatteberegningen</h2>
+      <form class="entry" id="taxForm" autocomplete="off">
+        <label class="f" for="sKommune">Kommuneskat %<input id="sKommune" inputmode="decimal"></label>
+        <label class="f check" for="sKirkeOn"><input type="checkbox" id="sKirkeOn"> Medlem af folkekirken</label>
+        <label class="f" for="sKirke">Kirkeskat %<input id="sKirke" inputmode="decimal"></label>
+        <label class="f wide" for="sLon">Løn fra job ved siden af (årlig, før AM-bidrag)<input id="sLon" inputmode="decimal" placeholder="0"></label>
+      </form>
+      <p class="muted small">Indstillingerne gemmes i <code>Kassebog indstillinger.md</code> i din mappe. Lønnen bruges kun til at regne ud, hvor meget ekstra skat virksomhedens overskud giver.</p>
+    </div>
+    <div class="card">
+      <h2>Filer og data</h2>
+      <p class="small" id="folderExplain"></p>
+      <div class="tablewrap" id="fileTable"></div>
+      <div class="actions">
+        <button type="button" id="btnExample">Indlæs eksempeldata</button>
+        <button type="button" id="btnClearExample">Fjern eksempeldata</button>
+      </div>
+      <p class="muted small">Eksempeldata skrives i dine filer med teksten «Eksempel:» foran, så de er lette at fjerne igen.</p>
+    </div>
+    <div class="card">
+      <h2>Sådan retter du direkte i filerne</h2>
+      <ul class="small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
+        <li>Behold kolonnenavnene i tabellens første linje. Rækkefølgen må gerne ændres, og ekstra kolonner bevares.</li>
+        <li>Datoer skrives som 2026-03-15. Beløb som 1250,00 eller 1250.</li>
+        <li>Indtægter: Moms er <code>inkl.</code> eller <code>ekskl.</code>, Type er <code>DK</code>, <code>EU</code> eller <code>Momsfri</code>.</li>
+        <li>Udgifter: Moms er <code>Auto</code>, <code>25 %</code>, <code>Ingen</code>, <code>Omvendt EU</code> eller <code>Omvendt udland</code>. Kategori skal være et af navnene fra appens liste.</li>
+        <li>Kørsel: Retur er <code>ja</code> eller <code>nej</code>.</li>
+        <li>Hævninger: Type er <code>Løn til mig selv</code>, <code>Skat betalt</code> eller <code>Indskud</code>.</li>
+        <li>Satser: ret tallene i <code>Kassebog satser.md</code>. Et nyt år tilføjes som en ny kolonne.</li>
+        <li>ID-kolonnen må gerne være tom i nye rækker. Appen udfylder den, næste gang den skriver filen.</li>
+        <li>Tekst over og under tabellen bliver stående, når appen gemmer.</li>
+        <li>Tryk Genindlæs, eller skift tilbage til fanen, efter du har rettet i en fil.</li>
+      </ul>
+    </div>
+    <div class="card" id="satsCard">
+      <div class="actions" style="justify-content:space-between"><h2>Satser</h2><div class="actions"><button type="button" class="small" id="btnCheckSats">Tjek for nye satser nu</button><button type="button" class="small" id="btnMarkChecked">Markér som tjekket i dag</button></div></div>
+      <p class="small" id="satsStatus"></p>
+      <div id="satsUpdate"></div>
+      <label class="f" for="sFeed">Opdateringskilde (adresse på en satser.md, som appen tjekker, hver gang den åbnes)<input id="sFeed" placeholder="https://raw.githubusercontent.com/…/satser.md"></label>
+      <div class="tablewrap" id="satsTable"></div>
+      <p class="muted small">Satserne læses fra <code>Kassebog satser.md</code> i din mappe. Officielle satser står på <a href="https://skat.dk/hjaelp/satser" style="color:var(--accent)">skat.dk/hjaelp/satser</a>. Appen giver et overblik og erstatter ikke en revisor.</p>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ============ Satser ============ */
+/* Satserne læses fra "Kassebog satser.md" i mappen. Værdierne herunder bruges kun til at oprette filen første gang. */
+const SATS_ROWS = [
+  ["status","Status (endelig eller foreløbig)",["endelig","foreløbig"],"skat.dk/hjaelp/satser"],
+  ["kmHoj","Kørsel op til 20.000 km, kr. pr. km",["3,94","4,13"],"Skatterådet via skat.dk og Dansk Industri"],
+  ["kmLav","Kørsel over 20.000 km, kr. pr. km",["2,28","2,44"],"Skatterådet via skat.dk og Dansk Industri"],
+  ["kmGraense","Km-grænse for høj sats",["20000",""],"skat.dk"],
+  ["personfradrag","Personfradrag, kr.",["54100","55700"],"skat.dk; 2027: Deloitte og BDO, med forbehold"],
+  ["am","AM-bidrag, %",["8",""],"skat.dk"],
+  ["bund","Bundskat, %",["12,01",""],"skat.dk"],
+  ["mellem","Mellemskat, %",["7,5",""],"skat.dk"],
+  ["mellemGr","Mellemskattegrænse, kr.",["641200","659900"],"skat.dk; 2027: Deloitte og BDO, med forbehold"],
+  ["top","Topskat, %",["7,5",""],"skat.dk"],
+  ["topGr","Topskattegrænse, kr.",["777900","800500"],"skat.dk; 2027: Deloitte og BDO, med forbehold"],
+  ["toptop","Toptopskat, %",["5",""],"skat.dk"],
+  ["toptopGr","Toptopskattegrænse, kr.",["2592700","2668200"],"skat.dk; 2027: Deloitte og BDO, med forbehold"],
+  ["loft","Skatteloft, %",["44,57",""],"skat.dk"],
+  ["besk","Beskæftigelsesfradrag, %",["12,75",""],"skat.dk"],
+  ["beskMax","Beskæftigelsesfradrag, højst kr.",["63300","65200"],"skat.dk; 2027: BDO, med forbehold"],
+  ["job","Jobfradrag, %",["4,5",""],"skat.dk"],
+  ["jobGr","Jobfradrag, af indkomst over kr.",["235200",""],"skat.dk"],
+  ["jobMax","Jobfradrag, højst kr.",["3100","3200"],"skat.dk; 2027: BDO, med forbehold"],
+  ["smaaaktiv","Småaktiver, straksafskrivning op til kr.",["36000",""],"skat.dk"],
+  ["momsgraense","Grænse for momsregistrering, kr.",["50000",""],"skat.dk"],
+  ["digitalGraense","Digital bogføring, omsætning over kr. to år i træk",["300000",""],"Erhvervsstyrelsen"]
+];
+const SATS_YEARS0 = [2026,2027];
+const PCT_KEYS = new Set(["am","bund","mellem","top","toptop","loft","besk","job"]);
+const SATS_FILE = "Kassebog satser.md";
+const SATS_URL_SKAT = "https://skat.dk/hjaelp/satser";
+let SATSER = {};
+let satsMeta = {checked:"", feed:"", text:""};
+let feedState = {status:"idle", diff:[], text:"", msg:""};
+function defaultSatserText(){
+  const head="| Nøgle | Sats | "+SATS_YEARS0.join(" | ")+" | Kilde |";
+  const sep="|"+[" --- "," --- ",...SATS_YEARS0.map(()=>" ---: ")," --- "].join("|")+"|";
+  return "---\nsidst_tjekket: "+todayIso()+"\nopdateringskilde: \"\"\n---\n# Kassebog – satser\n\nSatser og beløbsgrænser, som Kassebog regner med. Ret værdierne her, hvis Skattestyrelsen ændrer dem, eller lad appen opdatere dem fra opdateringskilden.\n\n- Procenter skrives som 12,01, beløb som 54100.\n- Status er endelig eller foreløbig. En tom celle betyder samme værdi som året før.\n- Et nyt år tilføjes som en ny kolonne, fx 2028.\n- Officielle satser: "+SATS_URL_SKAT+"\n\n"+[head,sep,...SATS_ROWS.map(r=>"| "+[r[0],r[1],...r[2],r[3]].join(" | ")+" |")].join("\n")+"\n";
+}
+function parseSatser(text){
+  const front=parseFront(text);
+  const lines=front.body.split("\n");
+  let start=-1;
+  for(let i=0;i<lines.length-1;i++){ if(/^\s*\|/.test(lines[i]) && /^\s*\|?\s*:?-{3,}/.test(lines[i+1]) && splitRow(lines[i]).some(h=>/^nøgle$/i.test(h))){ start=i; break; } }
+  const out={};
+  if(start<0) return {years:out, front, ok:false};
+  const H=splitRow(lines[start]);
+  const ki=H.findIndex(h=>/^nøgle$/i.test(h));
+  const yc=H.map((h,i)=>/^\d{4}$/.test(h)?[+h,i]:null).filter(Boolean).sort((a,b)=>a[0]-b[0]);
+  const raw={};
+  for(let i=start+2;i<lines.length && /^\s*\|/.test(lines[i]);i++){
+    const c=splitRow(lines[i]); const key=(c[ki]||"").trim(); if(!key) continue;
+    raw[key]={}; yc.forEach(([y,j])=>{ raw[key][y]=(c[j]||"").trim(); });
+  }
+  let prev=null;
+  for(const [y] of yc){
+    const o={}; let inherited=false;
+    for(const [key] of SATS_ROWS){
+      if(key==="status") continue;
+      const v=raw[key]?raw[key][y]:"";
+      const n=parseNum(v);
+      if(isFinite(n)) o[key]=PCT_KEYS.has(key)?n/100:n;
+      else if(prev && key in prev){ o[key]=prev[key]; inherited=true; }
+    }
+    const st=raw.status?raw.status[y]:"";
+    o.foreloebig = !/^endelig/i.test(st||"") ;
+    o.arvede = inherited;
+    out[y]=o; prev=o;
+  }
+  return {years:out, front, ok:yc.length>0};
+}
+function sats(y){
+  if(SATSER[y]) return SATSER[y];
+  const ys=Object.keys(SATSER).map(Number).sort((a,b)=>a-b);
+  const base=ys.filter(x=>x<y).pop() || ys[0];
+  return Object.assign({}, SATSER[base]||{}, {mangler:true, fra:base});
+}
+function satsDiff(a,b){
+  const d=[]; const ys=new Set([...Object.keys(a),...Object.keys(b)]);
+  for(const y of [...ys].sort()){
+    const A=a[y], B=b[y];
+    if(!A){ d.push(y+": nyt år i opdateringen"); continue; }
+    if(!B) continue;
+    for(const [key,label] of SATS_ROWS){
+      if(key==="status"){ if(!!A.foreloebig!==!!B.foreloebig) d.push(y+" · status: "+(A.foreloebig?"foreløbig":"endelig")+" → "+(B.foreloebig?"foreløbig":"endelig")); continue; }
+      if(Math.abs((A[key]||0)-(B[key]||0))>1e-9) d.push(y+" · "+label+": "+fmtSats(key,A[key])+" → "+fmtSats(key,B[key]));
+    }
+  }
+  return d;
+}
+function fmtSats(key,v){ if(v==null) return "–"; return PCT_KEYS.has(key) ? fmtP(v*100)+" %" : (v<100 ? fmt.format(v) : fmt0.format(v)); }
+function fmtP(n){ return new Intl.NumberFormat("da-DK",{maximumFractionDigits:2}).format(n); }
+
+const CAT = {
+  vare:{n:"Varekøb og materialer",m:"fuld"},
+  kontor:{n:"Kontorartikler og tryk",m:"fuld"},
+  software:{n:"Software og abonnementer",m:"fuld"},
+  tele:{n:"Telefon og internet",m:"fuld",andel:50},
+  marketing:{n:"Markedsføring og annoncer",m:"fuld"},
+  kursus:{n:"Kurser og faglitteratur",m:"fuld"},
+  udstyr:{n:"Udstyr og småaktiver",m:"fuld"},
+  lokale:{n:"Lokaler og husleje",m:"fuld"},
+  rejse:{n:"Rejser og offentlig transport",m:"ingen"},
+  rep:{n:"Repræsentation og restaurant",m:"rep"},
+  forsikring:{n:"Forsikring",m:"ingen"},
+  bank:{n:"Bank og gebyrer",m:"ingen"},
+  raadgivning:{n:"Revisor og rådgivning",m:"fuld"},
+  andet:{n:"Andet",m:"fuld"}
+};
+
+/* ============ Hjælpere ============ */
+const $ = id => document.getElementById(id);
+const fmt = new Intl.NumberFormat("da-DK",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt0 = new Intl.NumberFormat("da-DK",{maximumFractionDigits:0});
+const kr = v => fmt.format(v||0);
+const kr0 = v => fmt0.format(Math.round(v||0));
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2,"0");
+const iso = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const WD = ["søn","man","tir","ons","tor","fre","lør"];
+const MD = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
+function parseNum(v){
+  if(typeof v==="number") return v;
+  let s = String(v==null?"":v).trim().replace(/\s|kr\.?|%/gi,"");
+  if(!s) return NaN;
+  if(s.includes(",")) s = s.replace(/\./g,"").replace(",",".");
+  else if(/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g,"");
+  return parseFloat(s);
+}
+function numCell(n, dec){ if(!isFinite(n)) return ""; return (dec===0?String(Math.round(n)):n.toFixed(dec==null?2:dec)).replace(".",","); }
+function uid(){ return Date.now().toString(36).slice(-5)+Math.random().toString(36).slice(2,5); }
+function nextWeekday(d){ while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()+1); return d; }
+function todayIso(){ return iso(new Date()); }
+const validDate = d => { if(!/^\d{4}-\d{2}-\d{2}$/.test(d||"")) return false; const [y,m,dd]=d.split("-").map(Number); const t=new Date(y,m-1,dd); return t.getFullYear()===y&&t.getMonth()===m-1&&t.getDate()===dd; };
+let toastT;
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
+async function copyText(txt){
+  try{ await navigator.clipboard.writeText(txt); toast("Kopieret"); }
+  catch(e){ toast("Browseren tillod ikke kopiering"); }
+}
+
+/* ============ Markdown-filformat ============ */
+const SETTINGS_FILE = "Kassebog indstillinger.md";
+const TYPES = {income:"Indtægter", expense:"Udgifter", trips:"Kørsel", haev:"Hævninger"};
+const fname = (y,type) => y+" "+TYPES[type]+".md";
+const FILE_RE = /^(\d{4}) (Indtægter|Udgifter|Kørsel|Hævninger)\.md$/;
+
+const COLS = {
+  income:[["Dato","dato"],["Bilag","bilag"],["Tekst","tekst"],["Beløb","belob"],["Moms","inkl"],["Type","mtype"],["ID","id"]],
+  expense:[["Dato","dato"],["Bilag","bilag"],["Tekst","tekst"],["Kategori","kat"],["Beløb","belob"],["Moms","moms"],["Erhverv %","andel"],["ID","id"]],
+  trips:[["Dato","dato"],["Fra","fra"],["Til","til"],["Formål","formaal"],["Km","km"],["Retur","retur"],["ID","id"]],
+  haev:[["Dato","dato"],["Tekst","tekst"],["Beløb","belob"],["Type","htype"],["ID","id"]]
+};
+const INTRO = {
+  income:"Kildedata til Kassebog. Beløb skrives som 1250,00. Moms er inkl. eller ekskl. Type er DK, EU eller Momsfri.",
+  expense:"Kildedata til Kassebog. Beløb skrives inkl. moms, som på bilaget. Moms er Auto, 25 %, Ingen, Omvendt EU eller Omvendt udland. Kategori skal være et af navnene i appen.",
+  trips:"Kildedata til Kassebog. Km er én vej. Retur er ja eller nej. Kun erhvervsmæssig kørsel i egen bil.",
+  haev:"Kildedata til Kassebog. Penge du flytter mellem virksomheden og dig selv. Type er Løn til mig selv, Skat betalt eller Indskud. Hævninger er ikke en udgift og ændrer ikke overskuddet."
+};
+const HTYPE_OUT = {loen:"Løn til mig selv", skat:"Skat betalt", indskud:"Indskud"};
+const MOMS_OUT = {auto:"Auto","25":"25 %","0":"Ingen",rcEU:"Omvendt EU",rcX:"Omvendt udland"};
+const MTYPE_OUT = {dk:"DK",eu:"EU",fri:"Momsfri"};
+
+function toCell(type,key,r){
+  const v=r[key];
+  switch(key){
+    case "belob": return r.belobRaw!=null && !isFinite(v) ? r.belobRaw : numCell(v,2);
+    case "km": return isFinite(v) ? numCell(v, Number.isInteger(v)?0:1) : (r.kmRaw||"");
+    case "andel": return isFinite(v) ? numCell(v,0) : "100";
+    case "inkl": return v ? "inkl." : "ekskl.";
+    case "mtype": return MTYPE_OUT[v]||"DK";
+    case "kat": return r.katRaw || (CAT[v]||CAT.andet).n;
+    case "moms": return MOMS_OUT[v]||"Auto";
+    case "retur": return v ? "ja" : "nej";
+    case "htype": return HTYPE_OUT[v]||HTYPE_OUT.loen;
+    default: return v==null ? "" : String(v);
+  }
+}
+function fromCell(key,s,r){
+  s=(s||"").trim();
+  switch(key){
+    case "belob": { const n=parseNum(s); r.belob=n; if(!isFinite(n)) r.belobRaw=s; break; }
+    case "km": { const n=parseNum(s); r.km=n; if(!isFinite(n)) r.kmRaw=s; break; }
+    case "andel": { const n=parseNum(s); r.andel=isFinite(n)?n:100; break; }
+    case "inkl": r.inkl = !/ekskl|excl|uden/i.test(s); break;
+    case "mtype": r.mtype = /^eu/i.test(s) ? "eu" : /fri|udland|rubrik\s*c|^c$/i.test(s) ? "fri" : "dk"; break;
+    case "kat": {
+      const low=s.toLowerCase();
+      let k=Object.keys(CAT).find(k=>CAT[k].n.toLowerCase()===low||k===low);
+      if(!k && low.length>=4) k=Object.keys(CAT).find(k=>CAT[k].n.toLowerCase().split(/\s+og\s+|\s+/).some(w=>w.length>=4&&(w.startsWith(low)||low.startsWith(w))));
+      r.kat = k || "andet"; if(!k && s) r.katRaw = s; break;
+    }
+    case "moms": r.moms = /omvendt.*eu|rc.?eu/i.test(s) ? "rcEU" : /omvendt|udland|rc/i.test(s) ? "rcX" : /^(ingen|0|nej|uden)/i.test(s) ? "0" : /25/.test(s) ? "25" : "auto"; break;
+    case "retur": r.retur = /^(j|y|x|1|✓)/i.test(s); break;
+    case "htype": r.htype = /indskud|indsat/i.test(s) ? "indskud" : /skat|am-bidrag|restskat/i.test(s) ? "skat" : "loen"; break;
+    default: r[key]=s;
+  }
+}
+function splitRow(line){
+  let s=line.trim();
+  if(s.startsWith("|")) s=s.slice(1);
+  if(s.endsWith("|") && !s.endsWith("\\|")) s=s.slice(0,-1);
+  const cells=[]; let cur="";
+  for(let i=0;i<s.length;i++){
+    const ch=s[i];
+    if(ch==="\\" && s[i+1]==="|"){ cur+="|"; i++; continue; }
+    if(ch==="|"){ cells.push(cur.trim()); cur=""; continue; }
+    cur+=ch;
+  }
+  cells.push(cur.trim());
+  return cells;
+}
+const cellOut = s => String(s==null?"":s).replace(/\r?\n/g," ").replace(/\|/g,"\\|");
+function templateText(y,type){
+  return "---\nkassebog: "+TYPES[type].toLowerCase()+"\naar: "+y+"\n---\n# "+TYPES[type]+" "+y+"\n\n"+INTRO[type]+"\n\n";
+}
+function parseTable(text,type){
+  const lines=text.replace(/\r\n?/g,"\n").split("\n");
+  let start=-1;
+  for(let i=0;i<lines.length-1;i++){
+    if(/^\s*\|/.test(lines[i]) && /^\s*\|?\s*:?-{3,}/.test(lines[i+1]) && splitRow(lines[i]).some(h=>h.toLowerCase()==="dato")){ start=i; break; }
+  }
+  if(start<0) return {before:text.replace(/\s+$/,"")+"\n\n", after:"", rows:[], extraCols:[]};
+  let end=start+2; while(end<lines.length && /^\s*\|/.test(lines[end])) end++;
+  const headers=splitRow(lines[start]);
+  const known=new Map(COLS[type].map(([h,k])=>[h.toLowerCase(),k]));
+  const extraCols=headers.filter(h=>h && !known.has(h.toLowerCase()));
+  const rows=[];
+  for(let i=start+2;i<end;i++){
+    const c=splitRow(lines[i]);
+    if(c.every(x=>!x)) continue;
+    const r={extra:{}};
+    headers.forEach((h,j)=>{ const k=known.get(h.toLowerCase()); const v=c[j]==null?"":c[j]; if(k) fromCell(k,v,r); else if(h) r.extra[h]=v; });
+    COLS[type].forEach(([h,k])=>{ if(!(k in r) && !headers.some(x=>x.toLowerCase()===h.toLowerCase())) fromCell(k,"",r); });
+    if(!r.id) r.id="L"+(i+1);
+    if(type==="expense" && !isFinite(r.andel)) r.andel=100;
+    rows.push(r);
+  }
+  return {before:lines.slice(0,start).join("\n")+"\n", after:lines.slice(end).join("\n"), rows, extraCols};
+}
+function serializeTable(doc,type){
+  const cols=COLS[type], extra=doc.extraCols||[];
+  const head="| "+cols.map(c=>c[0]).concat(extra).join(" | ")+" |";
+  const sep="|"+cols.map(()=>" --- ").concat(extra.map(()=>" --- ")).join("|")+"|";
+  doc.rows.forEach(r=>{ if(!r.id || /^L\d+$/.test(r.id)) r.id=uid(); });
+  const rows=[...doc.rows].sort((a,b)=>String(a.dato).localeCompare(String(b.dato)));
+  const body=rows.map(r=>"| "+cols.map(([h,k])=>cellOut(toCell(type,k,r))).concat(extra.map(h=>cellOut((r.extra||{})[h]||""))).join(" | ")+" |");
+  let before=doc.before; if(!/\n\n$/.test(before)) before=before.replace(/\n*$/,"\n\n");
+  let after=doc.after||""; after = after.replace(/^\n*/,"");
+  return before+[head,sep,...body].join("\n")+"\n"+(after?"\n"+after.replace(/\n*$/,"\n"):"");
+}
+
+/* Frontmatter til indstillinger */
+const SET_KEYS = [
+  ["firma","firma","str",""],["cvr","cvr","str",""],
+  ["momsregistreret","momsreg","bool",true],["momsperiode","periode","str","halvaar"],
+  ["kommuneskat","kommune","num",25.0],["folkekirke","kirkeOn","bool",false],["kirkeskat","kirke","num",0.7],
+  ["loen","lon","num",0],["moms_indberettet","filed","list",[]]
+];
+function defaultSettings(){ const s={}; SET_KEYS.forEach(([y,k,t,d])=>s[k]=Array.isArray(d)?[]:d); return s; }
+function yamlScalar(v){
+  v=v.trim();
+  if(/^".*"$/.test(v)) { try{ return JSON.parse(v); }catch(e){ return v.slice(1,-1); } }
+  if(/^'.*'$/.test(v)) return v.slice(1,-1).replace(/''/g,"'");
+  if(/^(true|ja|yes)$/i.test(v)) return true;
+  if(/^(false|nej|no)$/i.test(v)) return false;
+  if(/^-?\d+([.,]\d+)?$/.test(v)) return parseFloat(v.replace(",","."));
+  if(/^\[.*\]$/.test(v)) return v.slice(1,-1).split(",").map(x=>x.trim()).filter(Boolean).map(yamlScalar);
+  return v;
+}
+function parseFront(text){
+  const t=text.replace(/\r\n?/g,"\n");
+  const m=t.match(/^---\n([\s\S]*?)\n---\n?/);
+  if(!m) return {data:{}, order:[], body:t};
+  const data={}, order=[]; let key=null;
+  for(const line of m[1].split("\n")){
+    const li=line.match(/^\s+-\s*(.*)$/);
+    if(li && key){ if(!Array.isArray(data[key])) data[key]=[]; data[key].push(yamlScalar(li[1])); continue; }
+    const kv=line.match(/^([^\s#:][^:]*):\s*(.*)$/);
+    if(kv){ key=kv[1].trim(); order.push(key); data[key] = kv[2].trim()==="" ? null : yamlScalar(kv[2]); }
+  }
+  return {data, order, body:t.slice(m[0].length)};
+}
+function yamlOut(v){
+  if(typeof v==="boolean"||typeof v==="number") return String(v);
+  const s=String(v==null?"":v);
+  if(s==="" || /[:#\[\]{}"',&*!|>%@`]/.test(s) || /^\s|\s$/.test(s) || /^(true|false|ja|nej|yes|no|-?\d+([.,]\d+)?)$/i.test(s)) return JSON.stringify(s);
+  return s;
+}
+function settingsFromFront(data){
+  const s=defaultSettings();
+  SET_KEYS.forEach(([y,k,t,d])=>{
+    if(!(y in data) || data[y]==null){ return; }
+    const v=data[y];
+    if(t==="bool") s[k] = v===true || /^(true|ja|yes|1)$/i.test(String(v));
+    else if(t==="num"){ const n=parseNum(v); s[k]=isFinite(n)?n:d; }
+    else if(t==="list") s[k] = Array.isArray(v) ? v.map(String) : String(v).split(",").map(x=>x.trim()).filter(Boolean);
+    else s[k] = String(v);
+  });
+  if(s.periode!=="kvartal") s.periode="halvaar";
+  return s;
+}
+const SETTINGS_BODY = "# Kassebog – indstillinger\n\nIndstillingerne står i egenskaberne øverst i filen og kan rettes her eller i appen.\n\n- momsperiode: halvaar eller kvartal\n- kommuneskat og kirkeskat: procent, fx 25.0\n- loen: årlig løn fra job ved siden af, før AM-bidrag\n- moms_indberettet: perioder du har indberettet, fx 2026-H1 eller 2026-Q3\n";
+function serializeSettings(s, front){
+  const known=new Set(SET_KEYS.map(x=>x[0]));
+  const lines=["---"];
+  SET_KEYS.forEach(([y,k,t])=>{
+    if(t==="list"){ const arr=s[k]||[]; if(!arr.length) lines.push(y+": []"); else { lines.push(y+":"); arr.forEach(x=>lines.push("  - "+yamlOut(x))); } }
+    else if(t==="num") lines.push(y+": "+(Number.isInteger(s[k])&&k!=="lon"?s[k].toFixed(1):String(s[k])));
+    else lines.push(y+": "+yamlOut(s[k]));
+  });
+  (front.order||[]).forEach(key=>{ if(known.has(key)) return; const v=front.data[key];
+    if(Array.isArray(v)){ lines.push(key+":"); v.forEach(x=>lines.push("  - "+yamlOut(x))); } else lines.push(key+": "+(v==null?"":yamlOut(v))); });
+  lines.push("---");
+  const body = front.body && front.body.trim() ? front.body.replace(/^\n*/,"") : SETTINGS_BODY;
+  return lines.join("\n")+"\n"+body;
+}
+
+/* ============ Mappe (File System Access API) ============ */
+let dir = null;
+let state = {settings:defaultSettings(), years:{}, files:[]};
+let curYear = new Date().getFullYear();
+
+function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open("kassebog-mappe",1); r.onupgradeneeded=()=>r.result.createObjectStore("h"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbGet(){ try{ const db=await idbOpen(); return await new Promise(res=>{ const q=db.transaction("h").objectStore("h").get("dir"); q.onsuccess=()=>res(q.result||null); q.onerror=()=>res(null); }); }catch(e){ return null; } }
+async function idbSet(h){ try{ const db=await idbOpen(); await new Promise(res=>{ const tx=db.transaction("h","readwrite"); tx.objectStore("h").put(h,"dir"); tx.oncomplete=res; tx.onerror=res; }); }catch(e){} }
+
+async function readText(name){
+  try{ const fh=await dir.getFileHandle(name); const f=await fh.getFile(); return {text:await f.text(), modified:f.lastModified}; }
+  catch(e){ if(e && e.name==="NotFoundError") return null; throw e; }
+}
+async function writeText(name,text){
+  const fh=await dir.getFileHandle(name,{create:true});
+  const w=await fh.createWritable(); await w.write(text); await w.close();
+}
+function yd(y){ if(!state.years[y]) state.years[y]={income:[],expense:[],trips:[],haev:[]}; return state.years[y]; }
+
+async function loadAll(){
+  const names=[];
+  for await (const [name,h] of dir.entries()){ if(h.kind==="file") names.push(name); }
+  const ns={settings:defaultSettings(), years:{}, files:[]};
+  if(names.includes(SATS_FILE)){
+    const r=await readText(SATS_FILE); const ps=parseSatser(r.text);
+    SATSER = ps.ok ? ps.years : parseSatser(defaultSatserText()).years;
+    satsMeta={checked:String(ps.front.data.sidst_tjekket||""), feed:String(ps.front.data.opdateringskilde||"").trim(), text:r.text, ok:ps.ok};
+    ns.files.push({name:SATS_FILE, modified:r.modified});
+  }
+  if(names.includes(SETTINGS_FILE)){
+    const r=await readText(SETTINGS_FILE); ns.settings=settingsFromFront(parseFront(r.text).data);
+    ns.files.push({name:SETTINGS_FILE, modified:r.modified});
+  }
+  for(const name of names.sort()){
+    const m=name.match(FILE_RE); if(!m) continue;
+    const y=+m[1], type=Object.keys(TYPES).find(k=>TYPES[k]===m[2]);
+    const r=await readText(name);
+    const doc=parseTable(r.text,type);
+    if(!ns.years[y]) ns.years[y]={income:[],expense:[],trips:[],haev:[]};
+    ns.years[y][type]=doc.rows;
+    ns.files.push({name, modified:r.modified, rows:doc.rows.length});
+  }
+  state=ns;
+}
+async function ensureFiles(){
+  if(!(await readText(SATS_FILE))) await writeText(SATS_FILE, defaultSatserText());
+  if(!(await readText(SETTINGS_FILE))) await writeText(SETTINGS_FILE, serializeSettings(defaultSettings(),{data:{},order:[],body:""}));
+  const y=new Date().getFullYear();
+  for(const type of Object.keys(TYPES)){
+    const n=fname(y,type);
+    if(!(await readText(n))) await writeText(n, serializeTable({before:templateText(y,type),after:"",rows:[],extraCols:[]},type));
+  }
+}
+
+/* Alle ændringer: læs filen frisk, ret, skriv. Filen er altid kilden. */
+let queue=Promise.resolve();
+function mutateRows(y,type,fn){
+  queue = queue.then(async()=>{
+    const name=fname(y,type);
+    const r=await readText(name);
+    const doc = r ? parseTable(r.text,type) : {before:templateText(y,type),after:"",rows:[],extraCols:[]};
+    fn(doc.rows);
+    await writeText(name, serializeTable(doc,type));
+  }).catch(e=>{ console.error(e); toast("Kunne ikke skrive "+fname(y,type)+": "+(e&&e.message||e)); });
+  return queue;
+}
+function mutateSettings(fn){
+  queue = queue.then(async()=>{
+    const r=await readText(SETTINGS_FILE);
+    const front = r ? parseFront(r.text) : {data:{},order:[],body:""};
+    const s = settingsFromFront(front.data);
+    fn(s);
+    await writeText(SETTINGS_FILE, serializeSettings(s, front));
+  }).catch(e=>{ console.error(e); toast("Kunne ikke skrive indstillingerne: "+(e&&e.message||e)); });
+  return queue;
+}
+async function refresh(resetForms){
+  await queue;
+  try{ await loadAll(); }catch(e){ console.error(e); toast("Kunne ikke læse mappen. Tryk Skift mappe og vælg den igen."); return; }
+  renderAll(resetForms);
+}
+
+async function connect(handle, fromPicker){
+  dir=handle;
+  try{ await ensureFiles(); await loadAll(); }
+  catch(e){ console.error(e); dir=null; toast("Mappen kunne ikke åbnes: "+(e&&e.message||e)); return; }
+  if(fromPicker) await idbSet(handle);
+  $("p-start").classList.remove("active"); $("tabs").classList.remove("hidden");
+  const yrs=years(); if(!yrs.includes(curYear)) curYear=yrs[yrs.length-1];
+  renderAll(true); showTab();
+  checkFeed(false);
+}
+async function pickFolder(){
+  try{ const h=await window.showDirectoryPicker({id:"kassebog", mode:"readwrite"}); await connect(h,true); }
+  catch(e){ if(e && e.name!=="AbortError") toast("Mappen kunne ikke vælges: "+e.message); }
+}
+async function startup(){
+  if(typeof window.showDirectoryPicker!=="function"){
+    $("noSupport").classList.remove("hidden"); $("btnPickStart").disabled=true; return;
+  }
+  const h=await idbGet();
+  if(!h) return;
+  let perm="prompt";
+  try{ perm=await h.queryPermission({mode:"readwrite"}); }catch(e){}
+  if(perm==="granted"){ await connect(h,false); return; }
+  const b=document.createElement("button"); b.type="button"; b.className="primary"; b.textContent="Fortsæt med mappen «"+h.name+"»";
+  b.onclick=async()=>{ try{ if(await h.requestPermission({mode:"readwrite"})==="granted") await connect(h,false); else toast("Adgang til mappen blev afvist"); }catch(e){ toast("Mappen findes ikke længere. Vælg den igen."); } };
+  const a=$("startActions"); $("btnPickStart").textContent="Vælg en anden mappe"; $("btnPickStart").className=""; a.prepend(b);
+}
+
+/* ============ Beregninger ============ */
+function calcIncome(i, reg){
+  const b = isFinite(i.belob)?i.belob:0;
+  if(reg && i.mtype==="dk"){ const net=i.inkl?b/1.25:b; return {net, moms:i.inkl?b-net:b*0.25}; }
+  return {net:b, moms:0};
+}
+function expMomsKind(e){
+  if(e.moms==="25"||e.moms==="0"||e.moms==="rcEU"||e.moms==="rcX") return e.moms;
+  return (CAT[e.kat]||CAT.andet).m==="ingen" ? "0" : "25";
+}
+function calcExpense(e, reg){
+  const b=isFinite(e.belob)?e.belob:0, a=Math.min(Math.max((isFinite(e.andel)?e.andel:100),0),100)/100;
+  const isRep=(CAT[e.kat]||{}).m==="rep", k=expMomsKind(e);
+  let moms=0,kmf=0,salgsmomsRc=0,fradrag=0,exMoms=b,rubA=0;
+  if(k==="25"){ moms=b*0.2; exMoms=b-moms; kmf=reg?moms*a*(isRep?0.25:1):0; fradrag=(b*a-kmf)*(isRep?0.25:1); }
+  else if(k==="rcEU"||k==="rcX"){ moms=b*0.25; if(reg){ salgsmomsRc=moms; kmf=moms*a*(isRep?0.25:1); if(k==="rcEU") rubA=b; } fradrag=b*a*(isRep?0.25:1); }
+  else fradrag=b*a*(isRep?0.25:1);
+  return {moms,kmf,salgsmomsRc,fradrag,exMoms,rubA,kind:k};
+}
+function calcTrips(trips,y){
+  const S=sats(y);
+  const sorted=[...trips].sort((p,q)=>String(p.dato).localeCompare(String(q.dato))||(p.id>q.id?1:-1));
+  let cum=0; const out={};
+  for(const t of sorted){
+    const km=(isFinite(t.km)?t.km:0)*(t.retur?2:1);
+    const hoj=Math.max(0,Math.min(km,S.kmGraense-cum)), lav=km-hoj; cum+=km;
+    out[t.id]={km,belob:hoj*S.kmHoj+lav*S.kmLav,hoj,lav};
+  }
+  return {byId:out,totalKm:cum};
+}
+const inRange=(d,f,t)=>d>=f&&d<=t;
+function summarize(y,from,to){
+  const data=yd(y), reg=state.settings.momsreg;
+  const r={netDk:0,netEu:0,netFri:0,net:0,salgsmoms:0,kobsmoms:0,rubA:0,fradrag:0,km:0,kmBelob:0,byCat:{}};
+  for(const i of data.income){ if(from&&!inRange(i.dato,from,to)) continue; const c=calcIncome(i,reg); r.net+=c.net; r.salgsmoms+=c.moms;
+    if(i.mtype==="eu") r.netEu+=c.net; else if(i.mtype==="fri") r.netFri+=c.net; else r.netDk+=c.net; }
+  for(const e of data.expense){ if(from&&!inRange(e.dato,from,to)) continue; const c=calcExpense(e,reg); r.kobsmoms+=c.kmf; r.salgsmoms+=c.salgsmomsRc; r.rubA+=c.rubA; r.fradrag+=c.fradrag; r.byCat[e.kat]=(r.byCat[e.kat]||0)+c.fradrag; }
+  const tc=calcTrips(data.trips,y);
+  for(const t of data.trips){ if(from&&!inRange(t.dato,from,to)) continue; r.km+=tc.byId[t.id].km; r.kmBelob+=tc.byId[t.id].belob; }
+  r.loen=0; r.skatBetalt=0; r.indskud=0;
+  for(const h of (data.haev||[])){ if(from&&!inRange(h.dato,from,to)) continue; const b=isFinite(h.belob)?h.belob:0; if(h.htype==="indskud") r.indskud+=b; else if(h.htype==="skat") r.skatBetalt+=b; else r.loen+=b; }
+  r.tilsvar=r.salgsmoms-r.kobsmoms; r.overskud=r.net-r.fradrag-r.kmBelob;
+  return r;
+}
+function skat(L,O,y,s){
+  const S=sats(y), arb=L+Math.max(O,0), am=S.am*arb, pi=L+O-am;
+  const besk=Math.min(S.besk*arb,S.beskMax), job=Math.min(Math.max(0,arb-S.jobGr)*S.job,S.jobMax), si=pi-besk-job;
+  const kom=(+s.kommune||0)/100+(s.kirkeOn?(+s.kirke||0)/100:0);
+  const kommune=kom*Math.max(0,si-S.personfradrag), bund=S.bund*Math.max(0,pi-S.personfradrag);
+  const loftRed=Math.max(0,(+s.kommune||0)/100+S.bund+S.mellem-S.loft);
+  const mellem=Math.max(0,S.mellem-loftRed)*Math.max(0,pi-S.mellemGr), top=S.top*Math.max(0,pi-S.topGr), toptop=S.toptop*Math.max(0,pi-S.toptopGr);
+  return {am,pi,besk,job,si,kommune,bund,mellem,top,toptop,total:am+kommune+bund+mellem+top+toptop};
+}
+function momsPerioder(y,type){
+  const P = type==="kvartal" ? [
+    {key:"Q1",label:"1. kvartal",from:y+"-01-01",to:y+"-03-31",frist:new Date(y,5,1)},
+    {key:"Q2",label:"2. kvartal",from:y+"-04-01",to:y+"-06-30",frist:new Date(y,8,1)},
+    {key:"Q3",label:"3. kvartal",from:y+"-07-01",to:y+"-09-30",frist:new Date(y,11,1)},
+    {key:"Q4",label:"4. kvartal",from:y+"-10-01",to:y+"-12-31",frist:new Date(y+1,2,1)}
+  ] : [
+    {key:"H1",label:"1. halvår",from:y+"-01-01",to:y+"-06-30",frist:new Date(y,8,1)},
+    {key:"H2",label:"2. halvår",from:y+"-07-01",to:y+"-12-31",frist:new Date(y+1,2,1)}
+  ];
+  P.forEach(p=>{ p.frist=iso(nextWeekday(p.frist)); p.id=y+"-"+p.key; });
+  return P;
+}
+const isFiled = id => (state.settings.filed||[]).includes(id);
+function frister(y){
+  const s=state.settings, L=[];
+  if(s.momsreg) for(const p of momsPerioder(y,s.periode)) L.push({date:p.frist,title:"Moms for "+p.label+" "+y,detail:"Indberet og betal på skat.dk/tastselv",kind:"moms",done:isFiled(p.id)});
+  [0,1,2,3,4,6,7,8,9,10].forEach(m=>L.push({date:iso(nextWeekday(new Date(y,m,20))),title:"B-skat og AM-bidrag, rate "+MD[m]+".",detail:"Sidste rettidige betalingsdag (10 rater, ingen i juni og december)",kind:"bskat"}));
+  L.push({date:iso(nextWeekday(new Date(y+1,6,1))),title:"Oplysningsskema for "+y,detail:"Virksomhedens resultat indberettes i TastSelv. Samme dag er sidste frist for at betale restskat uden procenttillæg.",kind:"skema"});
+  return L.sort((a,b)=>a.date.localeCompare(b.date));
+}
+function years(){
+  const set=new Set(Object.keys(SATSER).map(Number));
+  Object.keys(state.years).forEach(y=>set.add(+y));
+  set.add(new Date().getFullYear());
+  return [...set].sort((a,b)=>a-b);
+}
+
+/* ============ Rendering ============ */
+const isEx = r => /^eksempel:/i.test(r.tekst||r.formaal||"");
+function deadlineRow(f,today){
+  const past=f.date<today; let chip;
+  if(f.done) chip='<span class="chip good">Indberettet</span>';
+  else if(past&&f.kind==="moms") chip='<span class="chip bad">Over fristen</span>';
+  else if(past) chip='<span class="chip plain">Passeret</span>';
+  else { const days=Math.round((new Date(f.date+"T12:00:00")-new Date(today+"T12:00:00"))/86400000); chip='<span class="chip '+(days<=14?"warn":"plain")+'">Om '+days+' dage</span>'; }
+  const d=new Date(f.date+"T12:00:00");
+  return '<div class="dl'+(past&&!(f.kind==="moms"&&!f.done)?" past":"")+'"><span class="d">'+f.date+' '+WD[d.getDay()]+'</span><span><strong>'+esc(f.title)+'</strong><br><span class="muted small">'+esc(f.detail)+'</span></span>'+chip+'</div>';
+}
+function badRow(r){ return (!validDate(r.dato)?' <span class="tag ex">tjek dato</span>':'')+(r.belob!==undefined&&!isFinite(r.belob)?' <span class="tag ex">tjek beløb</span>':'')+(r.km!==undefined&&!isFinite(r.km)?' <span class="tag ex">tjek km</span>':''); }
+function renderOverview(){
+  const y=curYear, s=state.settings, S=sats(y), today=todayIso(), r=summarize(y);
+  const extra=skat(+s.lon||0,r.overskud,y,s).total-skat(+s.lon||0,0,y,s).total;
+  let cur=null;
+  if(s.momsreg){ const ps=momsPerioder(y,s.periode); cur=ps.find(p=>today>=p.from&&today<=p.to)||ps.filter(p=>!isFiled(p.id)).pop()||ps[ps.length-1]; }
+  const rc=cur?summarize(y,cur.from,cur.to):null;
+  $("ovTiles").innerHTML=[
+    ["Omsætning ekskl. moms",kr0(r.net)+" kr.","År til dato, "+y],
+    ["Fradrag",kr0(r.fradrag+r.kmBelob)+" kr.","Udgifter "+kr0(r.fradrag)+" + kørsel "+kr0(r.kmBelob)],
+    ["Overskud før skat",kr0(r.overskud)+" kr.",r.overskud<0?"Underskud":"Skattemæssigt resultat"],
+    ["Anslået skat af overskud",kr0(extra)+" kr.","≈ "+kr0(Math.max(0,extra)/10)+" kr. pr. B-skat-rate"],
+    ["Løn til dig selv",kr0(r.loen)+" kr.","Kan stadig hæves: "+kr0(kanHaeves(r,extra))+" kr."],
+    rc?["Moms "+cur.label,kr0(rc.tilsvar)+" kr.",rc.tilsvar<0?"Til gode hos Skattestyrelsen":"Frist "+cur.frist]:["Moms","Ikke registreret","Se fanen Moms"]
+  ].map(t=>'<div class="tile"><span class="label">'+t[0]+'</span><span class="value">'+t[1]+'</span><span class="sub">'+esc(t[2])+'</span></div>').join("");
+  const notes=[], d=yd(y);
+  if(!d.income.length&&!d.expense.length&&!d.trips.length) notes.push('<div class="note">Der er ingen posteringer for '+y+' endnu. Start under Indtægter, Udgifter eller Kørsel, eller indlæs eksempeldata under Indstillinger.</div>');
+  if([...d.income,...d.expense,...d.trips].some(isEx)) notes.push('<div class="note warn">Året indeholder eksempeldata. Fjern dem under Indstillinger, før du bruger tallene.</div>');
+  const bad=[...d.income,...d.expense,...d.trips].filter(x=>!validDate(x.dato)||(x.belob!==undefined&&!isFinite(x.belob))||(x.km!==undefined&&!isFinite(x.km))).length;
+  if(bad) notes.push('<div class="note bad">'+bad+' række'+(bad>1?'r':'')+' i filerne for '+y+' har en dato, et beløb eller antal km, appen ikke kan læse. De er markeret med «tjek» i tabellerne.</div>');
+  if(!s.momsreg && r.netDk+r.netEu>S.momsgraense*0.8) notes.push('<div class="note '+(r.netDk+r.netEu>S.momsgraense?"bad":"warn")+'">Din momspligtige omsætning er '+kr0(r.netDk+r.netEu)+' kr. Over '+kr0(S.momsgraense)+' kr. om året skal du momsregistreres på virk.dk.</div>');
+  if(r.net>S.digitalGraense*0.8) notes.push('<div class="note warn">Omsætningen nærmer sig eller passerer '+kr0(S.digitalGraense)+' kr. Har du over '+kr0(S.digitalGraense)+' kr. to år i træk, skal du bogføre i et digitalt bogføringssystem, der lever op til bogføringsloven. Denne kassebog er et overblik og ikke et godkendt system.</div>');
+  if(feedState.status==="update") notes.push('<div class="note warn"><strong>Nye satser fundet.</strong> Opdateringskilden har '+feedState.diff.length+' ændring'+(feedState.diff.length>1?'er':'')+' i forhold til din satsfil. <a href="#indstillinger" style="color:var(--accent)">Se og godkend under Indstillinger</a>.</div>');
+  if(S.mangler) notes.push('<div class="note bad">Der er ingen satser for '+y+' i '+SATS_FILE+', så tallene er regnet med satserne for '+S.fra+'. Tilføj en kolonne for '+y+' eller hent nye satser.</div>');
+  else if(S.foreloebig) notes.push('<div class="note">Satserne for '+y+' er markeret som foreløbige i '+SATS_FILE+'. Tjek dem på skat.dk/hjaelp/satser, når året nærmer sig, og ret status til endelig.</div>');
+  const age=satsMeta.checked?Math.round((new Date(todayIso())-new Date(satsMeta.checked))/86400000):999;
+  if(!satsMeta.feed && age>90) notes.push('<div class="note">Satserne blev sidst tjekket '+(satsMeta.checked||"aldrig")+'. Se skat.dk/hjaelp/satser, og markér dem som tjekket under Indstillinger.</div>');
+  const overdue=frister(y).filter(f=>f.kind==="moms"&&!f.done&&f.date<today);
+  if(overdue.length) notes.push('<div class="note bad">Momsfristen '+overdue.map(f=>f.date).join(", ")+' er passeret uden at være markeret som indberettet. Markér den under Moms, hvis den er klaret.</div>');
+  $("ovNotes").innerHTML=notes.join("");
+  const months=Array.from({length:12},(_,m)=>{ const q=summarize(y,y+"-"+pad(m+1)+"-01",y+"-"+pad(m+1)+"-31"); return [q.net,q.fradrag+q.kmBelob]; });
+  const max=Math.max(1,...months.flat());
+  $("ovBars").innerHTML=months.map((m,i)=>'<div class="bar" title="'+MD[i]+': indtægter '+kr0(m[0])+' kr., fradrag '+kr0(m[1])+' kr."><span class="i" style="height:'+(m[0]/max*100)+'%"></span><span class="u" style="height:'+(m[1]/max*100)+'%"></span></div>').join("");
+  $("ovMonths").innerHTML=MD.map(m=>"<span>"+m+"</span>").join("");
+  const all=[...frister(y),...frister(y+1)].filter(f=>f.date>=today&&!f.done).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
+  $("ovDeadlines").innerHTML=all.length?all.map(f=>deadlineRow(f,today)).join(""):'<p class="muted">Ingen kommende frister.</p>';
+}
+
+let editInc=null, editExp=null, editTrip=null;
+function defaultDate(){ const t=todayIso(); return t.startsWith(curYear+"-")?t:curYear+"-01-01"; }
+function nextBilag(){ const d=yd(curYear); let m=0; [...d.income,...d.expense].forEach(x=>{ const n=parseInt(x.bilag,10); if(n>m) m=n; }); return String(m+1); }
+function resetIncForm(){ editInc=null; $("incForm").reset(); $("incDato").value=defaultDate(); $("incBilag").value=nextBilag(); $("incFormTitle").textContent="Ny indtægt"; $("incSubmit").textContent="Tilføj"; $("incCancel").classList.add("hidden"); }
+function resetExpForm(){ editExp=null; $("expForm").reset(); $("expDato").value=defaultDate(); $("expBilag").value=nextBilag(); $("expAndel").value="100"; $("expFormTitle").textContent="Ny udgift"; $("expSubmit").textContent="Tilføj"; $("expCancel").classList.add("hidden"); expHint(); }
+function resetTripForm(){ editTrip=null; $("tripForm").reset(); $("tripDato").value=defaultDate(); $("tripRetur").checked=true; $("tripFormTitle").textContent="Ny tur"; $("tripSubmit").textContent="Tilføj"; $("tripCancel").classList.add("hidden"); }
+
+function renderIncome(){
+  const d=yd(curYear), reg=state.settings.momsreg;
+  $("incHint").textContent=(reg?"Dansk salg: skriv beløbet som på fakturaen. Ydelser til virksomheder i andre EU-lande faktureres uden moms og står i rubrik B.":"Du er ikke momsregistreret, så indtægter regnes uden moms.")+" Gemmes i "+fname(curYear,"income")+".";
+  $("incInkl").disabled=!reg;
+  const rows=[...d.income].sort((a,b)=>String(b.dato).localeCompare(String(a.dato)));
+  $("incCount").textContent=rows.length?"("+rows.length+")":"";
+  if(!rows.length){ $("incTable").innerHTML='<p class="empty">Ingen indtægter i '+curYear+' endnu.</p>'; return; }
+  let tn=0,tm=0;
+  const body=rows.map(i=>{ const c=calcIncome(i,reg); tn+=c.net; tm+=c.moms;
+    return '<tr'+(editInc===i.id?' class="editing"':'')+'><td class="num">'+esc(i.dato)+'</td><td class="txt">'+esc(i.tekst)+(isEx(i)?' <span class="tag ex">eksempel</span>':'')+badRow(i)+'</td><td><span class="tag">'+({dk:"DK",eu:"EU, rubr. B",fri:"Momsfri, rubr. C"}[i.mtype])+'</span></td><td class="num">'+esc(i.bilag)+'</td><td class="num">'+kr(c.net)+'</td><td class="num">'+kr(c.moms)+'</td><td class="num">'+kr(c.net+c.moms)+'</td><td style="white-space:nowrap"><button class="link" data-edit-inc="'+esc(i.id)+'">Ret</button><button class="link danger" data-del-inc="'+esc(i.id)+'">Slet</button></td></tr>'; }).join("");
+  $("incTable").innerHTML='<table><thead><tr><th>Dato</th><th>Tekst</th><th>Type</th><th class="num">Bilag</th><th class="num">Ekskl. moms</th><th class="num">Moms</th><th class="num">I alt</th><th></th></tr></thead><tbody>'+body+'<tr class="total"><td colspan="4">I alt</td><td class="num">'+kr(tn)+'</td><td class="num">'+kr(tm)+'</td><td class="num">'+kr(tn+tm)+'</td><td></td></tr></tbody></table>';
+}
+function expHint(){
+  const k=$("expKat").value, c=CAT[k]||CAT.andet, S=sats(curYear), reg=state.settings.momsreg;
+  const tips={rep:"Restaurant og repræsentation: 25 % af momsen og 25 % af udgiften kan trækkes fra. Skriv på bilaget, hvem der deltog, og hvorfor.",
+    tele:"Bruger du telefon og internet privat også, så sæt erhvervsandelen til den reelle andel.",
+    udstyr:"Udstyr under "+kr0(S.smaaaktiv)+" kr. "+(reg?"ekskl. moms":"inkl. moms")+" kan trækkes fra med det samme. Dyrere aktiver skal afskrives med højst 25 % om året.",
+    rejse:"Fly og offentlig transport i Danmark er typisk uden moms. Vælg dansk moms, hvis bilaget viser moms.",
+    software:"Køber du software hos et udenlandsk firma uden dansk moms, så vælg omvendt betalingspligt under Moms på bilaget.",
+    forsikring:"Forsikringer er momsfri.",bank:"Bankgebyrer er momsfri."};
+  $("expHint").textContent=(tips[k]||(c.m==="ingen"?"Kategorien er normalt uden moms.":"Skriv beløbet inkl. moms, som det står på bilaget."))+" Gemmes i "+fname(curYear,"expense")+".";
+}
+function renderExpense(){
+  const d=yd(curYear), reg=state.settings.momsreg, S=sats(curYear);
+  const rows=[...d.expense].sort((a,b)=>String(b.dato).localeCompare(String(a.dato)));
+  $("expCount").textContent=rows.length?"("+rows.length+")":"";
+  if(!rows.length){ $("expTable").innerHTML='<p class="empty">Ingen udgifter i '+curYear+' endnu.</p>'; return; }
+  let tb=0,tk=0,tf=0;
+  const body=rows.map(e=>{ const c=calcExpense(e,reg); tb+=isFinite(e.belob)?e.belob:0; tk+=c.kmf; tf+=c.fradrag;
+    let flag=""; if(e.kat==="udstyr"&&(reg?c.exMoms:e.belob)>S.smaaaktiv) flag=' <span class="tag ex">over småaktivgrænsen, skal afskrives</span>';
+    if(e.katRaw) flag+=' <span class="tag ex">ukendt kategori «'+esc(e.katRaw)+'», regnet som Andet</span>';
+    return '<tr'+(editExp===e.id?' class="editing"':'')+'><td class="num">'+esc(e.dato)+'</td><td class="txt">'+esc(e.tekst)+(isEx(e)?' <span class="tag ex">eksempel</span>':'')+badRow(e)+flag+'</td><td>'+esc((CAT[e.kat]||CAT.andet).n)+(e.andel<100?' <span class="tag">'+esc(e.andel)+' %</span>':'')+'</td><td class="num">'+esc(e.bilag)+'</td><td class="num">'+kr(e.belob)+'</td><td class="num" title="Moms: '+MOMS_OUT[c.kind]+'">'+kr(c.kmf)+'</td><td class="num">'+kr(c.fradrag)+'</td><td style="white-space:nowrap"><button class="link" data-edit-exp="'+esc(e.id)+'">Ret</button><button class="link danger" data-del-exp="'+esc(e.id)+'">Slet</button></td></tr>'; }).join("");
+  $("expTable").innerHTML='<table><thead><tr><th>Dato</th><th>Tekst</th><th>Kategori</th><th class="num">Bilag</th><th class="num">Beløb</th><th class="num">Købsmoms</th><th class="num">Skattefradrag</th><th></th></tr></thead><tbody>'+body+'<tr class="total"><td colspan="4">I alt</td><td class="num">'+kr(tb)+'</td><td class="num">'+kr(tk)+'</td><td class="num">'+kr(tf)+'</td><td></td></tr></tbody></table>';
+}
+function renderTrips(){
+  const d=yd(curYear), S=sats(curYear), tc=calcTrips(d.trips,curYear);
+  $("tripHint").textContent="Satser "+curYear+": "+kr(S.kmHoj)+" kr./km op til "+kr0(S.kmGraense)+" km og "+kr(S.kmLav)+" kr./km derover. Kun erhvervsmæssig kørsel i egen bil tæller. Kørsel mellem hjem og fast arbejdssted er ikke erhvervsmæssig. Kørt i år: "+kr0(tc.totalKm)+" km. Gemmes i "+fname(curYear,"trips")+".";
+  const rows=[...d.trips].sort((a,b)=>String(b.dato).localeCompare(String(a.dato)));
+  $("tripCount").textContent=rows.length?"("+rows.length+")":"";
+  if(!rows.length){ $("tripTable").innerHTML='<p class="empty">Ingen ture i '+curYear+' endnu.</p>'; return; }
+  let tk=0,tb=0;
+  const body=rows.map(t=>{ const c=tc.byId[t.id]; tk+=c.km; tb+=c.belob;
+    return '<tr'+(editTrip===t.id?' class="editing"':'')+'><td class="num">'+esc(t.dato)+'</td><td class="txt">'+esc(t.fra)+' → '+esc(t.til)+(t.retur?' og retur':'')+(isEx(t)?' <span class="tag ex">eksempel</span>':'')+badRow(t)+'</td><td class="txt">'+esc(t.formaal)+'</td><td class="num">'+kr0(c.km)+'</td><td class="num">'+(c.lav&&c.hoj?'blandet':c.lav?kr(S.kmLav):kr(S.kmHoj))+'</td><td class="num">'+kr(c.belob)+'</td><td style="white-space:nowrap"><button class="link" data-edit-trip="'+esc(t.id)+'">Ret</button><button class="link danger" data-del-trip="'+esc(t.id)+'">Slet</button></td></tr>'; }).join("");
+  $("tripTable").innerHTML='<table><thead><tr><th>Dato</th><th>Rute</th><th>Formål</th><th class="num">Km</th><th class="num">Sats</th><th class="num">Fradrag</th><th></th></tr></thead><tbody>'+body+'<tr class="total"><td colspan="3">I alt</td><td class="num">'+kr0(tk)+'</td><td></td><td class="num">'+kr(tb)+'</td><td></td></tr></tbody></table>';
+}
+function momsCols(y){ const s=state.settings; return momsPerioder(y,s.periode).map(p=>({p,r:summarize(y,p.from,p.to),filed:isFiled(p.id)})); }
+function renderMoms(){
+  const s=state.settings, y=curYear, S=sats(y), today=todayIso();
+  if(!s.momsreg){
+    const r=summarize(y), v=r.netDk+r.netEu, pct=Math.min(100,v/S.momsgraense*100);
+    $("momsBody").innerHTML='<h2>Moms</h2><p>Du er ikke momsregistreret. Du skal registreres på virk.dk, når din momspligtige omsætning kommer over '+kr0(S.momsgraense)+' kr. inden for 12 måneder.</p><div class="actions" style="justify-content:space-between"><span>Momspligtig omsætning '+y+'</span><span class="num">'+kr0(v)+' / '+kr0(S.momsgraense)+' kr.</span></div><div class="progress '+(pct>=100?"bad":pct>=80?"warn":"")+'"><span style="width:'+pct+'%"></span></div><p class="muted small">Slå momsregistrering til under Indstillinger, når du er registreret.</p>';
+    return;
+  }
+  const cols=momsCols(y);
+  const row=(label,f,hint)=>'<tr><td>'+label+(hint?'<br><span class="muted small">'+hint+'</span>':'')+'</td>'+cols.map(c=>'<td class="num">'+f(c)+'</td>').join("")+'</tr>';
+  const status=c=>c.filed?'<span class="chip good">Indberettet</span>':today>c.p.frist?'<span class="chip bad">Over fristen</span>':today>c.p.to?'<span class="chip warn">Klar til indberetning</span>':today>=c.p.from?'<span class="chip plain">Igangværende</span>':'<span class="chip plain">Ikke startet</span>';
+  $("momsBody").innerHTML='<div class="actions" style="justify-content:space-between"><h2>Momsangivelse '+y+'</h2><div class="actions"><span class="muted small">'+(s.periode==="kvartal"?"Kvartalsvis":"Halvårlig")+' afregning</span><button class="small" id="btnMomsReport">Gem som '+y+' Momsrapport.md</button></div></div>'+
+  '<div class="tablewrap"><table><thead><tr><th></th>'+cols.map(c=>'<th class="num">'+c.p.label+'<br><span style="text-transform:none;font-weight:400">'+c.p.from.slice(5)+' til '+c.p.to.slice(5)+'</span></th>').join("")+'</tr></thead><tbody>'+
+  row("Salgsmoms",c=>kr0(c.r.salgsmoms),"Inkl. moms af køb med omvendt betalingspligt")+
+  row("Købsmoms",c=>kr0(c.r.kobsmoms),"Fradragsberettiget moms")+
+  '<tr class="total"><td>Momstilsvar</td>'+cols.map(c=>'<td class="num">'+kr0(c.r.tilsvar)+'</td>').join("")+'</tr>'+
+  row("Rubrik A, ydelser",c=>kr0(c.r.rubA),"Køb af ydelser fra EU-lande")+
+  row("Rubrik B, ydelser",c=>kr0(c.r.netEu),"Salg af ydelser til EU-firmaer")+
+  row("Rubrik C",c=>kr0(c.r.netFri),"Andre momsfrie leverancer")+
+  row("Omsætning ekskl. moms",c=>kr0(c.r.net))+
+  row("Frist",c=>c.p.frist)+
+  '<tr><td>Status</td>'+cols.map(c=>'<td class="num">'+status(c)+'</td>').join("")+'</tr>'+
+  '<tr><td></td>'+cols.map(c=>'<td class="num"><div class="actions" style="justify-content:flex-end"><button class="small" data-copy-moms="'+c.p.key+'">Kopiér tal</button><button class="small" data-file="'+c.p.id+'">'+(c.filed?"Fortryd":"Markér indberettet")+'</button></div></td>').join("")+'</tr>'+
+  '</tbody></table></div><p class="muted small">Tallene er afrundet til hele kroner, som i TastSelv. Et negativt momstilsvar betyder, at du får penge tilbage. Markeringen «indberettet» gemmes i '+SETTINGS_FILE+'.</p>';
+  $("btnMomsReport").onclick=()=>saveReport(y+" Momsrapport.md", momsReportMd(y));
+}
+function momsText(key){
+  const p=momsPerioder(curYear,state.settings.periode).find(x=>x.key===key), r=summarize(curYear,p.from,p.to);
+  return "Moms "+p.label+" "+curYear+" ("+p.from+" til "+p.to+")\nSalgsmoms: "+kr0(r.salgsmoms)+"\nKøbsmoms: "+kr0(r.kobsmoms)+"\nMomstilsvar: "+kr0(r.tilsvar)+"\nRubrik A ydelser: "+kr0(r.rubA)+"\nRubrik B ydelser: "+kr0(r.netEu)+"\nRubrik C: "+kr0(r.netFri)+"\nFrist: "+p.frist;
+}
+function mdRow(cells){ return "| "+cells.map(cellOut).join(" | ")+" |"; }
+function genHeader(kind,y){ return "---\nkassebog: "+kind+"\naar: "+y+"\ngenereret: "+todayIso()+" "+pad(new Date().getHours())+":"+pad(new Date().getMinutes())+"\n---\n"; }
+function momsReportMd(y){
+  const cols=momsCols(y);
+  const L=[genHeader("momsrapport",y)+"# Momsrapport "+y,"","Genereret af Kassebog ud fra "+fname(y,"income")+", "+fname(y,"expense")+" og "+fname(y,"trips")+". Ret i kildefilerne, ikke her. Beløb i hele kroner.","",
+    mdRow(["",...cols.map(c=>c.p.label+" ("+c.p.from+" til "+c.p.to+")")]), "|"+[" --- ",...cols.map(()=>" ---: ")].join("|")+"|",
+    mdRow(["Salgsmoms",...cols.map(c=>kr0(c.r.salgsmoms))]),
+    mdRow(["Købsmoms",...cols.map(c=>kr0(c.r.kobsmoms))]),
+    mdRow(["**Momstilsvar**",...cols.map(c=>"**"+kr0(c.r.tilsvar)+"**")]),
+    mdRow(["Rubrik A, ydelser",...cols.map(c=>kr0(c.r.rubA))]),
+    mdRow(["Rubrik B, ydelser",...cols.map(c=>kr0(c.r.netEu))]),
+    mdRow(["Rubrik C",...cols.map(c=>kr0(c.r.netFri))]),
+    mdRow(["Omsætning ekskl. moms",...cols.map(c=>kr0(c.r.net))]),
+    mdRow(["Frist",...cols.map(c=>c.p.frist)]),
+    mdRow(["Status",...cols.map(c=>c.filed?"Indberettet":"Ikke indberettet")]),""];
+  return L.join("\n");
+}
+function renderResult(){
+  const y=curYear, s=state.settings, r=summarize(y), S=sats(y);
+  const catRows=Object.keys(CAT).filter(k=>r.byCat[k]).map(k=>'<tr class="sub"><td>&nbsp;&nbsp;'+esc(CAT[k].n)+'</td><td class="num">'+kr(-r.byCat[k])+'</td></tr>').join("");
+  $("resCard").innerHTML='<div class="actions" style="justify-content:space-between"><h2>Resultat '+y+'</h2><div class="actions"><button class="small" id="btnCopyRes">Kopiér</button><button class="small" id="btnResReport">Gem som '+y+' Årsresultat.md</button></div></div>'+
+  '<div class="tablewrap"><table><tbody>'+
+  '<tr><td>Omsætning ekskl. moms</td><td class="num">'+kr(r.net)+'</td></tr>'+
+  (r.netEu?'<tr class="sub"><td>&nbsp;&nbsp;heraf EU-salg</td><td class="num">'+kr(r.netEu)+'</td></tr>':'')+
+  (r.netFri?'<tr class="sub"><td>&nbsp;&nbsp;heraf momsfrit</td><td class="num">'+kr(r.netFri)+'</td></tr>':'')+
+  '<tr><td>Driftsudgifter (skattemæssigt fradrag)</td><td class="num">'+kr(-r.fradrag)+'</td></tr>'+catRows+
+  '<tr><td>Kørsel i egen bil, '+kr0(r.km)+' km</td><td class="num">'+kr(-r.kmBelob)+'</td></tr>'+
+  '<tr class="total"><td>Skattemæssigt resultat</td><td class="num">'+kr(r.overskud)+'</td></tr></tbody></table></div>'+
+  '<div class="note"><strong>Til oplysningsskemaet</strong> (frist '+iso(nextWeekday(new Date(y+1,6,1)))+'): Resultatet indberettes som overskud eller underskud af virksomhed, og omsætningen som nettoomsætning. Afrundet: resultat <span class="num">'+kr0(r.overskud)+'</span> kr., omsætning <span class="num">'+kr0(r.net)+'</span> kr.</div>'+
+  '<p class="muted small">Beregnet efter personskattelovens almindelige regler, ikke virksomhedsordningen. Afskrivninger på aktiver over '+kr0(S.smaaaktiv)+' kr. er ikke medregnet.</p>';
+  const L=+s.lon||0, a=skat(L,r.overskud,y,s), b=skat(L,0,y,s), extra=a.total-b.total, pct=r.overskud>0?extra/r.overskud*100:0;
+  const line=(t,v,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td>'+t+'</td><td class="num">'+kr0(v)+'</td></tr>';
+  $("taxCard").innerHTML='<h2>Anslået skat af overskuddet</h2><p class="muted small">'+(L?'Beregnet som forskellen mellem skat med og uden virksomhedens overskud, med '+kr0(L)+' kr. i løn ved siden af.':'Beregnet uden anden indkomst. Har du løn ved siden af, så indtast den under Indstillinger for et mere præcist tal.')+'</p>'+
+  '<div class="tablewrap"><table><tbody>'+line("AM-bidrag 8 %",a.am-b.am)+line("Kommune"+(s.kirkeOn?"- og kirke":"")+"skat",a.kommune-b.kommune)+line("Bundskat 12,01 %",a.bund-b.bund)+line("Mellemskat 7,5 %",a.mellem-b.mellem)+line("Topskat 7,5 %",a.top-b.top)+(a.toptop-b.toptop?line("Toptopskat 5 %",a.toptop-b.toptop):"")+line("Ekstra skat i alt",extra,"total")+'</tbody></table></div>'+
+  '<div class="tiles"><div class="tile"><span class="label">Skat i procent af overskud</span><span class="value">'+fmt.format(pct).replace(/,00$/,"")+' %</span></div><div class="tile"><span class="label">Pr. B-skat-rate (10 rater)</span><span class="value">'+kr0(Math.max(0,extra)/10)+' kr.</span></div></div>'+
+  '<p class="muted small">Beskæftigelsesfradrag og jobfradrag er regnet med. Kapitalindkomst, pension og andre fradrag er ikke. Ret din forskudsopgørelse i TastSelv, når det forventede overskud ændrer sig, så B-skatten passer.</p>';
+  $("btnCopyRes").onclick=()=>copyText("Resultat "+y+"\nNettoomsætning: "+kr0(r.net)+"\nDriftsudgifter: "+kr0(r.fradrag)+"\nKørsel ("+kr0(r.km)+" km): "+kr0(r.kmBelob)+"\nSkattemæssigt resultat: "+kr0(r.overskud));
+  $("btnResReport").onclick=()=>saveReport(y+" Årsresultat.md", resultReportMd(y));
+}
+function resultReportMd(y){
+  const s=state.settings, r=summarize(y), L=+s.lon||0, a=skat(L,r.overskud,y,s), b=skat(L,0,y,s);
+  const out=[genHeader("aarsresultat",y)+"# Årsresultat "+y,"","Genereret af Kassebog. Ret i kildefilerne, ikke her.","",
+    "| Post | Beløb |","| --- | ---: |",
+    mdRow(["Omsætning ekskl. moms",kr(r.net)]),
+    mdRow(["Driftsudgifter",kr(-r.fradrag)]),
+    ...Object.keys(CAT).filter(k=>r.byCat[k]).map(k=>mdRow(["– "+CAT[k].n,kr(-r.byCat[k])])),
+    mdRow(["Kørsel, "+kr0(r.km)+" km",kr(-r.kmBelob)]),
+    mdRow(["**Skattemæssigt resultat**","**"+kr(r.overskud)+"**"]),"",
+    "## Til oplysningsskemaet","","- Frist: "+iso(nextWeekday(new Date(y+1,6,1))),"- Overskud af virksomhed: "+kr0(r.overskud)+" kr.","- Nettoomsætning: "+kr0(r.net)+" kr.","",
+    "## Anslået skat af overskuddet","","| Skat | Beløb |","| --- | ---: |",
+    mdRow(["AM-bidrag",kr0(a.am-b.am)]),mdRow(["Kommune- og kirkeskat",kr0(a.kommune-b.kommune)]),mdRow(["Bundskat",kr0(a.bund-b.bund)]),mdRow(["Mellemskat",kr0(a.mellem-b.mellem)]),mdRow(["Topskat",kr0(a.top-b.top)]),
+    mdRow(["**I alt**","**"+kr0(a.total-b.total)+"**"]),"",
+    "Beregnet efter personskattelovens almindelige regler"+(L?", med "+kr0(L)+" kr. i løn ved siden af":"")+". Et overslag, ikke en endelig opgørelse.",""];
+  return out.join("\n");
+}
+async function saveReport(name,text){
+  await queue;
+  try{ await writeText(name,text); toast("Gemt: "+name); await refresh(false); }catch(e){ toast("Kunne ikke gemme "+name); }
+}
+function kanHaeves(r,skatAnslaaet){ return r.overskud + r.indskud - r.loen - Math.max(skatAnslaaet, r.skatBetalt); }
+let editHaev=null;
+function resetHaevForm(){ editHaev=null; $("haevForm").reset(); $("haevDato").value=defaultDate(); $("haevFormTitle").textContent="Registrér udbetaling"; $("haevSubmit").textContent="Tilføj"; $("haevCancel").classList.add("hidden"); }
+function renderHaev(){
+  const y=curYear, s=state.settings, r=summarize(y), d=yd(y);
+  const skatA=skat(+s.lon||0,r.overskud,y,s).total-skat(+s.lon||0,0,y,s).total;
+  const rest=kanHaeves(r,skatA);
+  const mdr=Math.max(1, y===new Date().getFullYear()? new Date().getMonth()+1 : 12);
+  $("haevTiles").innerHTML=[
+    ["Løn til dig selv i "+y,kr0(r.loen)+" kr.","≈ "+kr0(r.loen/mdr)+" kr. pr. måned"],
+    ["Overskud før skat",kr0(r.overskud)+" kr.","Hævninger ændrer ikke overskuddet"],
+    ["Anslået skat af overskud",kr0(skatA)+" kr.",r.skatBetalt?"Betalt fra virksomheden: "+kr0(r.skatBetalt)+" kr.":"Ingen skat betalt fra virksomheden endnu"],
+    ["Kan stadig hæves",kr0(rest)+" kr.",rest<0?"Du har hævet mere end overskuddet efter skat":"Når skatten er sat til side"+(r.indskud?", inkl. indskud "+kr0(r.indskud)+" kr.":"")]
+  ].map(t=>'<div class="tile"><span class="label">'+t[0]+'</span><span class="value">'+t[1]+'</span><span class="sub">'+esc(t[2])+'</span></div>').join("");
+  $("haevHint").textContent="I en enkeltmandsvirksomhed får du ikke lønseddel. Du hæver af overskuddet, og du betaler skat af overskuddet, ikke af det, du hæver. Betaler du B-skat fra virksomhedens konto, så registrér det som «Skat betalt». Gemmes i "+fname(y,"haev")+".";
+  const rows=[...(d.haev||[])].sort((a,b)=>String(b.dato).localeCompare(String(a.dato)));
+  $("haevCount").textContent=rows.length?"("+rows.length+")":"";
+  if(!rows.length){ $("haevTable").innerHTML='<p class="empty">Ingen udbetalinger i '+y+' endnu.</p>'; return; }
+  const body=rows.map(h=>'<tr'+(editHaev===h.id?' class="editing"':'')+'><td class="num">'+esc(h.dato)+'</td><td><span class="tag">'+HTYPE_OUT[h.htype]+'</span></td><td class="txt">'+esc(h.tekst)+(isEx(h)?' <span class="tag ex">eksempel</span>':'')+badRow(h)+'</td><td class="num">'+(h.htype==="indskud"?"+":"−")+' '+kr(h.belob)+'</td><td style="white-space:nowrap"><button class="link" data-edit-haev="'+esc(h.id)+'">Ret</button><button class="link danger" data-del-haev="'+esc(h.id)+'">Slet</button></td></tr>').join("");
+  $("haevTable").innerHTML='<table><thead><tr><th>Dato</th><th>Type</th><th>Tekst</th><th class="num">Beløb</th><th></th></tr></thead><tbody>'+body+
+    '<tr class="total"><td colspan="3">Løn til dig selv</td><td class="num">'+kr(r.loen)+'</td><td></td></tr>'+
+    (r.skatBetalt?'<tr class="sub"><td colspan="3">Skat betalt fra virksomheden</td><td class="num">'+kr(r.skatBetalt)+'</td><td></td></tr>':'')+
+    (r.indskud?'<tr class="sub"><td colspan="3">Indskud</td><td class="num">'+kr(r.indskud)+'</td><td></td></tr>':'')+'</tbody></table>';
+}
+function renderFrister(){ const t=todayIso(); $("fristTitle").textContent="Frister for regnskabsåret "+curYear; $("fristList").innerHTML=frister(curYear).map(f=>deadlineRow(f,t)).join(""); }
+function renderSettings(){
+  const s=state.settings;
+  $("sFirma").value=s.firma; $("sCvr").value=s.cvr; $("sMomsreg").checked=!!s.momsreg; $("sPeriode").value=s.periode; $("sPeriode").disabled=!s.momsreg;
+  $("sKommune").value=String(s.kommune).replace(".",","); $("sKirkeOn").checked=!!s.kirkeOn; $("sKirke").value=String(s.kirke).replace(".",","); $("sKirke").disabled=!s.kirkeOn;
+  $("sLon").value=s.lon?String(s.lon):"";
+  $("folderExplain").textContent=dir?"Mappe: «"+dir.name+"». Alle data ligger i filerne herunder. Tag backup af mappen sammen med dine øvrige filer, fx via din cloud-synkronisering.":"";
+  $("fileTable").innerHTML='<table><thead><tr><th>Fil</th><th class="num">Rækker</th><th class="num">Senest ændret</th></tr></thead><tbody>'+state.files.map(f=>'<tr><td>'+esc(f.name)+'</td><td class="num">'+(f.rows==null?"":f.rows)+'</td><td class="num">'+(f.modified?iso(new Date(f.modified))+" "+pad(new Date(f.modified).getHours())+":"+pad(new Date(f.modified).getMinutes()):"")+'</td></tr>').join("")+'</tbody></table>';
+  renderSatser();
+}
+function renderSatser(){
+  const ys=Object.keys(SATSER).map(Number).sort((a,b)=>a-b);
+  const head='<tr><th>Sats</th>'+ys.map(y=>'<th class="num">'+y+'</th>').join("")+'</tr>';
+  const st='<tr><td>Status</td>'+ys.map(y=>'<td class="num">'+(SATSER[y].foreloebig?'<span class="chip warn">foreløbig</span>':'<span class="chip good">endelig</span>')+'</td>').join("")+'</tr>';
+  const body=SATS_ROWS.filter(r=>r[0]!=="status").map(([k,label])=>'<tr><td>'+esc(label)+'</td>'+ys.map(y=>'<td class="num">'+fmtSats(k,SATSER[y][k])+'</td>').join("")+'</tr>').join("");
+  $("satsTable").innerHTML='<table><thead>'+head+'</thead><tbody>'+st+body+'</tbody></table>';
+  if(document.activeElement!==$("sFeed")) $("sFeed").value=satsMeta.feed||"";
+  let msg="Satserne blev sidst tjekket "+(satsMeta.checked||"aldrig")+". ";
+  if(!satsMeta.feed) msg+="Der er ingen opdateringskilde, så appen kan ikke selv hente nye satser. Du kan rette tallene direkte i filen.";
+  else if(feedState.status==="checking") msg+="Tjekker opdateringskilden …";
+  else if(feedState.status==="same") msg+="Opdateringskilden har de samme satser som din fil.";
+  else if(feedState.status==="update") msg+="Opdateringskilden har nye satser. Se dem herunder.";
+  else if(feedState.status==="error") msg+="Opdateringskilden kunne ikke læses: "+feedState.msg;
+  $("satsStatus").textContent=msg;
+  $("satsUpdate").innerHTML = feedState.status==="update" ? '<div class="note warn"><strong>Ændringer i opdateringskilden</strong><ul class="small" style="margin:6px 0;padding-left:18px">'+feedState.diff.map(d=>'<li>'+esc(d)+'</li>').join("")+'</ul><div class="actions"><button class="primary small" id="btnApplySats">Opdatér '+SATS_FILE+'</button><button class="small" id="btnIgnoreSats">Ikke nu</button></div></div>' : "";
+  if($("btnApplySats")) $("btnApplySats").onclick=applyFeed;
+  if($("btnIgnoreSats")) $("btnIgnoreSats").onclick=()=>{ feedState.status="idle"; renderAll(false); };
+}
+async function checkFeed(manual){
+  if(!satsMeta.feed){ if(manual) toast("Angiv en opdateringskilde først, eller tjek skat.dk/hjaelp/satser selv"); return; }
+  feedState={status:"checking",diff:[],text:"",msg:""}; if(manual) renderSatser();
+  try{
+    const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),10000);
+    const res=await fetch(satsMeta.feed,{cache:"no-store",signal:ctl.signal}); clearTimeout(t);
+    if(!res.ok) throw new Error("svar "+res.status);
+    const text=await res.text(); const ps=parseSatser(text);
+    if(!ps.ok) throw new Error("filen indeholder ingen satstabel");
+    const diff=satsDiff(SATSER, ps.years);
+    feedState = diff.length ? {status:"update",diff,text,msg:""} : {status:"same",diff:[],text:"",msg:""};
+    if(!diff.length && satsMeta.checked!==todayIso()) await markChecked(false);
+  }catch(e){ feedState={status:"error",diff:[],text:"",msg:(e&&e.name==="AbortError")?"ingen svar":(e&&e.message||String(e))}; }
+  renderAll(false);
+  if(manual) toast(feedState.status==="update"?"Nye satser fundet":feedState.status==="same"?"Ingen nye satser":"Kunne ikke tjekke for nye satser");
+}
+function withFront(text, patch){
+  const f=parseFront(text); const data=Object.assign({}, f.data, patch); const order=[...f.order]; Object.keys(patch).forEach(k=>{ if(!order.includes(k)) order.push(k); });
+  return "---\n"+order.map(k=>{ const v=data[k]; return Array.isArray(v)? k+":\n"+v.map(x=>"  - "+yamlOut(x)).join("\n") : k+": "+(v==null?'""':yamlOut(v)); }).join("\n")+"\n---\n"+f.body.replace(/^\n*/,"");
+}
+async function applyFeed(){
+  if(!feedState.text) return;
+  await queue;
+  try{ await writeText(SATS_FILE, withFront(feedState.text,{sidst_tjekket:todayIso(), opdateringskilde:satsMeta.feed})); feedState={status:"same",diff:[],text:"",msg:""}; toast(SATS_FILE+" er opdateret"); await refresh(false); }
+  catch(e){ toast("Kunne ikke skrive "+SATS_FILE); }
+}
+async function markChecked(withToast){
+  queue=queue.then(async()=>{ const r=await readText(SATS_FILE); if(r) await writeText(SATS_FILE, withFront(r.text,{sidst_tjekket:todayIso()})); });
+  await queue; await refresh(false); if(withToast) toast("Satserne er markeret som tjekket "+todayIso());
+}
+async function setFeed(url){
+  queue=queue.then(async()=>{ const r=await readText(SATS_FILE); if(r) await writeText(SATS_FILE, withFront(r.text,{opdateringskilde:url})); });
+  await queue; await refresh(false); if(url) checkFeed(true);
+}
+function renderHeader(){
+  const s=state.settings;
+  $("firmLine").textContent=(s.firma||"Enkeltmandsvirksomhed")+(s.cvr?" · CVR "+s.cvr:"")+(s.momsreg?" · momsregistreret":" · ikke momsregistreret");
+  $("yearSel").innerHTML=years().map(y=>'<option'+(y===curYear?' selected':'')+'>'+y+'</option>').join("");
+  const c=$("folderChip");
+  if(dir){ c.className="chip good"; c.textContent="Mappe: "+dir.name; } else { c.className="chip warn"; c.textContent="Ingen mappe valgt"; }
+  $("btnReload").disabled=!dir;
+}
+function renderAll(resetForms){
+  if(resetForms){ resetIncForm(); resetExpForm(); resetTripForm(); resetHaevForm(); }
+  renderHeader();
+  if(!dir) return;
+  renderOverview(); renderIncome(); renderExpense(); renderTrips(); renderMoms(); renderResult(); renderFrister(); renderHaev(); renderSettings();
+}
+
+/* ============ Faner ============ */
+const TABS=["overblik","indtaegter","udgifter","koersel","loen","moms","aarsresultat","frister","indstillinger"];
+function showTab(){
+  if(!dir) return;
+  const h=(location.hash||"").slice(1), t=TABS.includes(h)?h:"overblik";
+  TABS.forEach(x=>$("p-"+x).classList.toggle("active",x===t));
+  document.querySelectorAll("#tabs a").forEach(a=>{ if(a.dataset.tab===t) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
+}
+window.addEventListener("hashchange",showTab);
+
+/* ============ Formularer ============ */
+async function saveRecord(type, rec, editId, editYear){
+  const y=+rec.dato.slice(0,4);
+  if(editId && editYear!==y){
+    await mutateRows(editYear,type,rows=>{ const i=rows.findIndex(x=>x.id===editId); if(i>=0) rows.splice(i,1); });
+    await mutateRows(y,type,rows=>rows.push(rec));
+  } else if(editId){
+    await mutateRows(y,type,rows=>{ const i=rows.findIndex(x=>x.id===editId); if(i>=0){ rec.extra=rows[i].extra; rows[i]=rec; } else rows.push(rec); });
+  } else await mutateRows(y,type,rows=>rows.push(rec));
+  await refresh(true);
+  toast("Gemt i "+fname(y,type));
+}
+function editYearOf(type,id){ const r=yd(curYear)[type].find(x=>x.id===id); return r&&validDate(r.dato)?+r.dato.slice(0,4):curYear; }
+
+$("incForm").addEventListener("submit",async ev=>{
+  ev.preventDefault();
+  const b=parseNum($("incBelob").value); if(!(b>0)){ toast("Skriv et beløb større end 0"); $("incBelob").focus(); return; }
+  const rec={id:editInc&&!editInc.startsWith("L")?editInc:uid(),dato:$("incDato").value,tekst:$("incTekst").value.trim(),belob:Math.round(b*100)/100,inkl:$("incInkl").value==="1",mtype:$("incType").value,bilag:$("incBilag").value.trim()};
+  await saveRecord("income",rec,editInc,editInc?editYearOf("income",editInc):null); $("incTekst").focus();
+});
+$("incCancel").onclick=()=>{ resetIncForm(); renderIncome(); };
+$("expForm").addEventListener("submit",async ev=>{
+  ev.preventDefault();
+  const b=parseNum($("expBelob").value); if(!(b>0)){ toast("Skriv et beløb større end 0"); $("expBelob").focus(); return; }
+  const a=parseNum($("expAndel").value); if(!(a>=0&&a<=100)){ toast("Erhvervsandelen skal være mellem 0 og 100"); return; }
+  const rec={id:editExp&&!editExp.startsWith("L")?editExp:uid(),dato:$("expDato").value,tekst:$("expTekst").value.trim(),kat:$("expKat").value,belob:Math.round(b*100)/100,moms:$("expMoms").value,andel:a,bilag:$("expBilag").value.trim()};
+  await saveRecord("expense",rec,editExp,editExp?editYearOf("expense",editExp):null); $("expTekst").focus();
+});
+$("expCancel").onclick=()=>{ resetExpForm(); renderExpense(); };
+$("expKat").addEventListener("change",()=>{ const c=CAT[$("expKat").value]; if(!editExp) $("expAndel").value=String(c&&c.andel||100); expHint(); });
+$("tripForm").addEventListener("submit",async ev=>{
+  ev.preventDefault();
+  const km=parseNum($("tripKm").value); if(!(km>0)){ toast("Skriv antal km"); $("tripKm").focus(); return; }
+  const rec={id:editTrip&&!editTrip.startsWith("L")?editTrip:uid(),dato:$("tripDato").value,fra:$("tripFra").value.trim(),til:$("tripTil").value.trim(),formaal:$("tripFormaal").value.trim(),km:Math.round(km*10)/10,retur:$("tripRetur").checked};
+  await saveRecord("trips",rec,editTrip,editTrip?editYearOf("trips",editTrip):null); $("tripTil").focus();
+});
+$("tripCancel").onclick=()=>{ resetTripForm(); renderTrips(); };
+$("haevForm").addEventListener("submit",async ev=>{
+  ev.preventDefault();
+  const b=parseNum($("haevBelob").value); if(!(b>0)){ toast("Skriv et beløb større end 0"); $("haevBelob").focus(); return; }
+  const tekst=$("haevTekst").value.trim() || (HTYPE_OUT[$("haevType").value]+" "+$("haevDato").value.slice(0,7));
+  const rec={id:editHaev&&!editHaev.startsWith("L")?editHaev:uid(),dato:$("haevDato").value,tekst,belob:Math.round(b*100)/100,htype:$("haevType").value};
+  await saveRecord("haev",rec,editHaev,editHaev?editYearOf("haev",editHaev):null);
+});
+$("haevCancel").onclick=()=>{ resetHaevForm(); renderHaev(); };
+$("btnCheckSats").onclick=()=>checkFeed(true);
+$("btnMarkChecked").onclick=()=>markChecked(true);
+$("sFeed").addEventListener("change",()=>{ const v=$("sFeed").value.trim(); if(v===(satsMeta.feed||"")) return; if(v && !/^https:\/\//.test(v)){ toast("Adressen skal starte med https://"); return; } setFeed(v); });
+
+document.addEventListener("click",async ev=>{
+  const t=ev.target.closest("button"); if(!t) return;
+  const d=yd(curYear), ds=t.dataset;
+  const del = ds.delInc?["income",ds.delInc]:ds.delExp?["expense",ds.delExp]:ds.delTrip?["trips",ds.delTrip]:ds.delHaev?["haev",ds.delHaev]:null;
+  if(del){
+    if(t.dataset.armed!=="1"){ t.dataset.armed="1"; t.textContent="Bekræft"; setTimeout(()=>{ if(t.isConnected){ t.dataset.armed=""; t.textContent="Slet"; } },3000); return; }
+    const [type,id]=del, y=editYearOf(type,id);
+    if(id===editInc||id===editExp||id===editTrip||id===editHaev){ editInc=editExp=editTrip=editHaev=null; }
+    await mutateRows(y,type,rows=>{ const i=rows.findIndex(x=>x.id===id); if(i>=0) rows.splice(i,1); });
+    await refresh(true); toast("Slettet fra "+fname(y,type)); return;
+  }
+  if(ds.editInc){ const i=d.income.find(x=>x.id===ds.editInc); if(!i) return; editInc=i.id;
+    $("incDato").value=i.dato; $("incTekst").value=i.tekst; $("incBelob").value=isFinite(i.belob)?String(i.belob).replace(".",","):""; $("incInkl").value=i.inkl?"1":"0"; $("incType").value=i.mtype; $("incBilag").value=i.bilag||"";
+    $("incFormTitle").textContent="Ret indtægt"; $("incSubmit").textContent="Gem ændring"; $("incCancel").classList.remove("hidden"); renderIncome(); $("incForm").scrollIntoView({block:"center"}); return; }
+  if(ds.editExp){ const e=d.expense.find(x=>x.id===ds.editExp); if(!e) return; editExp=e.id;
+    $("expDato").value=e.dato; $("expTekst").value=e.tekst; $("expKat").value=e.kat; $("expBelob").value=isFinite(e.belob)?String(e.belob).replace(".",","):""; $("expMoms").value=e.moms||"auto"; $("expAndel").value=String(e.andel); $("expBilag").value=e.bilag||"";
+    $("expFormTitle").textContent="Ret udgift"; $("expSubmit").textContent="Gem ændring"; $("expCancel").classList.remove("hidden"); expHint(); renderExpense(); $("expForm").scrollIntoView({block:"center"}); return; }
+  if(ds.editHaev){ const h=(d.haev||[]).find(x=>x.id===ds.editHaev); if(!h) return; editHaev=h.id;
+    $("haevDato").value=h.dato; $("haevType").value=h.htype; $("haevBelob").value=isFinite(h.belob)?String(h.belob).replace(".",","):""; $("haevTekst").value=h.tekst||"";
+    $("haevFormTitle").textContent="Ret udbetaling"; $("haevSubmit").textContent="Gem ændring"; $("haevCancel").classList.remove("hidden"); renderHaev(); $("haevForm").scrollIntoView({block:"center"}); return; }
+  if(ds.editTrip){ const r=d.trips.find(x=>x.id===ds.editTrip); if(!r) return; editTrip=r.id;
+    $("tripDato").value=r.dato; $("tripFra").value=r.fra; $("tripTil").value=r.til; $("tripFormaal").value=r.formaal; $("tripKm").value=isFinite(r.km)?String(r.km).replace(".",","):""; $("tripRetur").checked=!!r.retur;
+    $("tripFormTitle").textContent="Ret tur"; $("tripSubmit").textContent="Gem ændring"; $("tripCancel").classList.remove("hidden"); renderTrips(); $("tripForm").scrollIntoView({block:"center"}); return; }
+  if(ds.file){ const id=ds.file; await mutateSettings(s=>{ s.filed=s.filed.includes(id)?s.filed.filter(x=>x!==id):[...s.filed,id].sort(); }); await refresh(false); return; }
+  if(ds.copyMoms){ copyText(momsText(ds.copyMoms)); return; }
+});
+
+function bindSetting(id,key,kind){
+  $(id).addEventListener("change",async()=>{
+    const el=$(id); let v;
+    if(kind==="bool") v=el.checked; else if(kind==="num"){ v=parseNum(el.value); if(!isFinite(v)) v=0; } else v=el.value.trim();
+    await mutateSettings(s=>{ s[key]=v; }); await refresh(false); toast("Gemt i "+SETTINGS_FILE);
+  });
+}
+bindSetting("sFirma","firma"); bindSetting("sCvr","cvr"); bindSetting("sMomsreg","momsreg","bool"); bindSetting("sPeriode","periode");
+bindSetting("sKommune","kommune","num"); bindSetting("sKirkeOn","kirkeOn","bool"); bindSetting("sKirke","kirke","num"); bindSetting("sLon","lon","num");
+$("yearSel").addEventListener("change",()=>{ curYear=+$("yearSel").value; renderAll(true); });
+$("btnPick").onclick=pickFolder; $("btnPickStart").onclick=pickFolder;
+$("btnReload").onclick=async()=>{ await refresh(false); toast("Filerne er læst igen"); };
+let focusT; window.addEventListener("focus",()=>{ if(!dir) return; clearTimeout(focusT); focusT=setTimeout(()=>refresh(false),150); });
+
+$("btnExample").onclick=async()=>{
+  const y=curYear;
+  await mutateRows(y,"income",rows=>rows.push(
+    {id:uid(),dato:y+"-01-22",tekst:"Eksempel: GTD-workshop, Firma A/S",belob:18750,inkl:true,mtype:"dk",bilag:"E1"},
+    {id:uid(),dato:y+"-03-10",tekst:"Eksempel: Coachingforløb, 4 sessioner",belob:8000,inkl:false,mtype:"dk",bilag:"E2"},
+    {id:uid(),dato:y+"-05-04",tekst:"Eksempel: Online kursus til svensk firma",belob:12000,inkl:false,mtype:"eu",bilag:"E3"},
+    {id:uid(),dato:y+"-09-15",tekst:"Eksempel: Foredrag, kommune",belob:6250,inkl:true,mtype:"dk",bilag:"E4"}));
+  await mutateRows(y,"expense",rows=>rows.push(
+    {id:uid(),dato:y+"-01-05",tekst:"Eksempel: Bærbar computer",kat:"udstyr",belob:9995,moms:"auto",andel:100,bilag:"E5"},
+    {id:uid(),dato:y+"-02-01",tekst:"Eksempel: AI-abonnement, USA",kat:"software",belob:1500,moms:"rcX",andel:100,bilag:"E6"},
+    {id:uid(),dato:y+"-02-14",tekst:"Eksempel: Frokost med kunde",kat:"rep",belob:850,moms:"auto",andel:100,bilag:"E7"},
+    {id:uid(),dato:y+"-03-01",tekst:"Eksempel: Mobilabonnement",kat:"tele",belob:249,moms:"auto",andel:50,bilag:"E8"},
+    {id:uid(),dato:y+"-04-20",tekst:"Eksempel: Fagbøger",kat:"kursus",belob:640,moms:"auto",andel:100,bilag:"E9"},
+    {id:uid(),dato:y+"-06-30",tekst:"Eksempel: Erhvervsforsikring",kat:"forsikring",belob:2100,moms:"auto",andel:100,bilag:"E10"}));
+  await mutateRows(y,"trips",rows=>rows.push(
+    {id:uid(),dato:y+"-01-22",fra:"Kontoret",til:"Firma A/S, Vejle",formaal:"Eksempel: GTD-workshop",km:72,retur:true},
+    {id:uid(),dato:y+"-09-15",fra:"Kontoret",til:"Rådhuset, Horsens",formaal:"Eksempel: Foredrag",km:48,retur:true}));
+  await mutateRows(y,"haev",rows=>rows.push(
+    {id:uid(),dato:y+"-03-31",tekst:"Eksempel: Løn 1. kvartal",belob:6000,htype:"loen"},
+    {id:uid(),dato:y+"-06-30",tekst:"Eksempel: Løn 2. kvartal",belob:6000,htype:"loen"},
+    {id:uid(),dato:y+"-07-20",tekst:"Eksempel: B-skat juli",belob:500,htype:"skat"}));
+  await refresh(true); toast("Eksempeldata skrevet til filerne for "+y); location.hash="overblik";
+};
+$("btnClearExample").onclick=async()=>{
+  for(const y of Object.keys(state.years)) for(const type of Object.keys(TYPES)){
+    if(!state.years[y][type].some(isEx)) continue;
+    await mutateRows(+y,type,rows=>{ for(let i=rows.length-1;i>=0;i--) if(isEx(rows[i])) rows.splice(i,1); });
+  }
+  await refresh(true); toast("Eksempeldata fjernet fra filerne");
+};
+
+/* ============ Start ============ */
+SATSER = parseSatser(defaultSatserText()).years;
+$("expKat").innerHTML=Object.entries(CAT).map(([k,c])=>'<option value="'+k+'">'+c.n+'</option>').join("");
+renderAll(true);
+startup();
+</script>
+</body>
+</html>

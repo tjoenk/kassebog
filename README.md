@@ -23,17 +23,17 @@ Alle data ligger som almindelige Markdown-filer i en mappe, du selv vælger. HTM
 
 ## Funktioner
 
-| Fane | Hvad den gør |
-| --- | --- |
-| **Overblik** | Omsætning, fradrag, overskud, anslået skat, løn til dig selv og moms for den aktuelle periode. Søjlediagram måned for måned og de næste fem frister. Advarsler om momsgrænse, digital bogføring, foreløbige satser og overskredne frister. |
-| **Indtægter** | Dansk salg med 25 % moms, ydelser til EU-firmaer (rubrik B) og momsfrit salg (rubrik C). Beløb kan indtastes inkl. eller ekskl. moms. |
-| **Udgifter** | 14 kategorier med automatisk momsbehandling, erhvervsandel i procent, omvendt betalingspligt for køb i EU og uden for EU, og særregel for repræsentation. Markerer udstyr over småaktivgrænsen. |
-| **Kørsel** | Kørselsbog med fra, til, formål og km. Regner fradrag med høj og lav sats ud fra de kørte km i året. |
-| **Løn til mig** | Registrerer private hævninger, skat betalt fra virksomhedens konto og indskud. Viser hvor meget du stadig kan hæve, når skatten er sat til side. |
-| **Moms** | Momsangivelse pr. halvår eller kvartal med salgsmoms, købsmoms, momstilsvar og rubrik A, B og C. Tallene kan kopieres til TastSelv, perioden kan markeres som indberettet, og rapporten kan gemmes som Markdown. |
-| **Årsresultat** | Skattemæssigt resultat fordelt på kategorier, tal til oplysningsskemaet og et overslag over skatten af overskuddet. Kan gemmes som Markdown. |
-| **Frister** | Momsfrister, B-skatterater og fristen for oplysningsskemaet for det valgte år. |
-| **Indstillinger** | Virksomhedens navn og CVR, momsregistrering og -periode, kommune- og kirkeskat, løn fra job ved siden af, satser og eksempeldata. |
+| Fane              | Hvad den gør                                                                                                                                                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Overblik**      | Omsætning, fradrag, overskud, anslået skat, løn til dig selv og moms for den aktuelle periode. Søjlediagram måned for måned og de næste fem frister. Advarsler om momsgrænse, digital bogføring, foreløbige satser og overskredne frister. |
+| **Indtægter**     | Dansk salg med 25 % moms, ydelser til EU-firmaer (rubrik B) og momsfrit salg (rubrik C). Beløb kan indtastes inkl. eller ekskl. moms.                                                                                                      |
+| **Udgifter**      | 14 kategorier med automatisk momsbehandling, erhvervsandel i procent, omvendt betalingspligt for køb i EU og uden for EU, og særregel for repræsentation. Markerer udstyr over småaktivgrænsen.                                            |
+| **Kørsel**        | Kørselsbog med fra, til, formål og km. Regner fradrag med høj og lav sats ud fra de kørte km i året.                                                                                                                                       |
+| **Løn til mig**   | Registrerer private hævninger, skat betalt fra virksomhedens konto og indskud. Viser hvor meget du stadig kan hæve, når skatten er sat til side.                                                                                           |
+| **Moms**          | Momsangivelse pr. halvår eller kvartal med salgsmoms, købsmoms, momstilsvar og rubrik A, B og C. Tallene kan kopieres til TastSelv, perioden kan markeres som indberettet, og rapporten kan gemmes som Markdown.                           |
+| **Årsresultat**   | Skattemæssigt resultat fordelt på kategorier, tal til oplysningsskemaet og et overslag over skatten af overskuddet. Kan gemmes som Markdown.                                                                                               |
+| **Frister**       | Momsfrister, B-skatterater og fristen for oplysningsskemaet for det valgte år.                                                                                                                                                             |
+| **Indstillinger** | Virksomhedens navn og CVR, momsregistrering og -periode, kommune- og kirkeskat, løn fra job ved siden af, satser og eksempeldata.                                                                                                          |
 
 Desuden:
 
@@ -87,9 +87,9 @@ aar: 2026
 
 Kildedata til Kassebog. Beløb skrives som 1250,00. Moms er inkl. eller ekskl. Type er DK, EU eller Momsfri.
 
-| Dato | Bilag | Tekst | Beløb | Moms | Type | ID |
-| --- | --- | --- | --- | --- | --- | --- |
-| 2026-01-22 | 1 | GTD-workshop, Firma A/S | 18750,00 | inkl. | DK | mk2x9a1b |
+| Dato       | Bilag | Tekst               | Beløb    | Moms  | Type | ID       |
+| ---------- | ----- | ------------------- | -------- | ----- | ---- | -------- |
+| 2026-01-22 | 1     | Workshop, Firma A/S | 18750,00 | inkl. | DK   | mk2x9a1b |
 ```
 
 Indstillingerne ligger i frontmatter i `Kassebog indstillinger.md`, herunder hvilke momsperioder der er markeret som indberettet (fx `2026-H1` eller `2026-Q3`).
@@ -114,22 +114,22 @@ Appen læser altid filen frisk, før den skriver, så ændringer fra en editor b
 
 ### Udgiftskategorier
 
-| Kategori | Moms som standard |
-| --- | --- |
-| Varekøb og materialer | 25 % |
-| Kontorartikler og tryk | 25 % |
-| Software og abonnementer | 25 % |
-| Telefon og internet | 25 %, erhvervsandel 50 % som standard |
-| Markedsføring og annoncer | 25 % |
-| Kurser og faglitteratur | 25 % |
-| Udstyr og småaktiver | 25 % |
-| Lokaler og husleje | 25 % |
-| Rejser og offentlig transport | Ingen |
-| Repræsentation og restaurant | 25 %, men kun 25 % af moms og udgift trækkes fra |
-| Forsikring | Ingen |
-| Bank og gebyrer | Ingen |
-| Revisor og rådgivning | 25 % |
-| Andet | 25 % |
+| Kategori                      | Moms som standard                                |
+| ----------------------------- | ------------------------------------------------ |
+| Varekøb og materialer         | 25 %                                             |
+| Kontorartikler og tryk        | 25 %                                             |
+| Software og abonnementer      | 25 %                                             |
+| Telefon og internet           | 25 %, erhvervsandel 50 % som standard            |
+| Markedsføring og annoncer     | 25 %                                             |
+| Kurser og faglitteratur       | 25 %                                             |
+| Udstyr og småaktiver          | 25 %                                             |
+| Lokaler og husleje            | 25 %                                             |
+| Rejser og offentlig transport | Ingen                                            |
+| Repræsentation og restaurant  | 25 %, men kun 25 % af moms og udgift trækkes fra |
+| Forsikring                    | Ingen                                            |
+| Bank og gebyrer               | Ingen                                            |
+| Revisor og rådgivning         | 25 %                                             |
+| Andet                         | 25 %                                             |
 
 ---
 
@@ -142,12 +142,12 @@ Satserne står i `Kassebog satser.md` som en tabel med én kolonne pr. år:
 sidst_tjekket: 2026-11-20
 opdateringskilde: ""
 ---
-| Nøgle | Sats | 2026 | 2027 | Kilde |
-| --- | --- | ---: | ---: | --- |
-| status | Status (endelig eller foreløbig) | endelig | foreløbig | skat.dk/hjaelp/satser |
-| kmHoj | Kørsel op til 20.000 km, kr. pr. km | 3,94 | 4,13 | Skatterådet |
-| personfradrag | Personfradrag, kr. | 54100 | 55700 | skat.dk |
-| ... | | | | |
+| Nøgle         | Sats                                |    2026 |      2027 | Kilde                 |
+| ------------- | ----------------------------------- | ------: | --------: | --------------------- |
+| status        | Status (endelig eller foreløbig)    | endelig | foreløbig | skat.dk/hjaelp/satser |
+| kmHoj         | Kørsel op til 20.000 km, kr. pr. km |    3,94 |      4,13 | Skatterådet           |
+| personfradrag | Personfradrag, kr.                  |   54100 |     55700 | skat.dk               |
+| ...           |                                     |         |           |                       |
 ```
 
 - Procenter skrives som `12,01`, beløb som `54100`.
